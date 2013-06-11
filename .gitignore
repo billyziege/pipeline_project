@@ -1,0 +1,11 @@
+#Ignore are shell scripts
+*.sh
+
+#Ignore the storage dir --- part of the config and is where I keep project data.
+qc_pipeline/storage/
+
+#Ignore sge_records dir --- again, only for keeping project run data
+qc_pipeline/sge_records/
+
+#Ignore all old versions of files
+*~
