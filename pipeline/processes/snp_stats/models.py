@@ -1,15 +1,22 @@
 import os
 import re
 from manage_storage.disk_queries import disk_usage
-from processes.hiseq.models import Sample
+from physical_objects.models import Sample
 from processes.pipeline.models import Bcbio
-from processes.models import QsubProcess
+from processes.models import SampleQsubProcess
 from processes.snp_stats.extract_stats import store_snp_stats_in_db, grab_search_stats
 from template.scripts import fill_template
 
-class SnpStats(QsubProcess):
+class SnpStats(SampleQsubProcess):
+    """
+    This manages and stores the information for the sub-process snp_stats.  Snp_stats
+    is a sub-process of bcbio.  It run concordance and hethom ratio generating scripts.
+    """
 
     def __init__(self,config,key=int(-1),sample=None,bcbio=None,concordance_filename=None,hethom_filename=None,process_name='snp_stats',**kwargs):
+        """
+        Initializes the snp stats process.
+        """
         if sample is None:
             sample = Sample(config,key="dummy_sample_key")
         if bcbio is None:
@@ -18,7 +25,7 @@ class SnpStats(QsubProcess):
             raise Exception("Trying to start a snp_stats process on a non-bcbio pipeline.")
         input_dir = bcbio.output_dir
         output_dir = input_dir
-        QsubProcess.__init__(self,config,key=key,sample=sample,input_dir=input_dir,output_dir=output_dir,process_name=process_name,**kwargs)
+        SampleQsubProcess.__init__(self,config,key=key,sample=sample,input_dir=input_dir,output_dir=output_dir,process_name=process_name,**kwargs)
         self.snp_path = bcbio.snp_path
         if concordance_filename is None:
             concordance_filename = self.sample_key + ".con"
@@ -36,6 +43,10 @@ class SnpStats(QsubProcess):
         self.search_key = None
 
     def __fill_qsub_file__(self,config):
+        """
+        Since some of the information for the qsub file is pulled from the config file,
+        this finds that information and writes out the qsub file. 
+        """
         template_file= os.path.join(config.get('Common_directories','template'),config.get('Template_files','snp_stats'))
         dictionary = {}
         for k,v in self.__dict__.iteritems():
@@ -46,6 +57,12 @@ class SnpStats(QsubProcess):
             f.write(fill_template(template_file,dictionary))
 
     def __is_complete__(self,config,mockdb):
+        """
+        Since concordance search is an optional sub-process, this function checks for
+        both the completeness of the self concordance program and the necessity,
+        and if necessary the completeness, of the concordance search.  Then, once 
+        complete, relevant statistics are stored.
+        """
         if os.path.isfile(self.complete_file):
             pass
         else:
@@ -73,9 +90,17 @@ class SnpStats(QsubProcess):
             return False
         return False
 
-class ConcordanceSearch(QsubProcess):
+class ConcordanceSearch(SampleQsubProcess):
+    """
+    Handles the optional step of search the data base
+    by calculating concordance of every sample and the 
+    target sample.
+    """
 
     def __init__(self,config,key=int(-1),sample=None,snp_stats=None,output_filename=None,process_name='concord_search',**kwargs):
+        """
+        Initializes the concordance search process.
+        """
         if sample is None:
             sample = Sample(config,key="dummy_sample_key")
         if snp_stats is None:
@@ -84,7 +109,7 @@ class ConcordanceSearch(QsubProcess):
             raise Exception("Trying to start a concordance search process for a non-snp_stats process.")
         input_dir = snp_stats.output_dir
         output_dir = input_dir
-        QsubProcess.__init__(self,config,key=key,sample=sample,input_dir=input_dir,output_dir=output_dir,process_name=process_name,**kwargs)
+        SampleQsubProcess.__init__(self,config,key=key,sample=sample,input_dir=input_dir,output_dir=output_dir,process_name=process_name,**kwargs)
         self.snp_path = snp_stats.snp_path
         self.first_match = sample.key
         self.first_concordance = snp_stats.percentage_concordance
@@ -102,6 +127,9 @@ class ConcordanceSearch(QsubProcess):
         self.output_path = os.path.join(self.output_dir,output_filename)
 
     def __fill_sub_qsub_files__(self,config):
+        """
+        This handles scattering the search across nodes.
+        """
         template_file= os.path.join(config.get('Common_directories','template'),config.get('Template_files','individual_search'))
         list_files = config.get('Concordance','split_lists').split(',')
         dictionary = {}
@@ -121,6 +149,10 @@ class ConcordanceSearch(QsubProcess):
                 f.write(fill_template(template_file,dictionary))
 
     def __fill_qsub_file__(self,config):
+        """
+        This handles the qsub file which gathers the results of the scattered
+        processes.
+        """
         template_file= os.path.join(config.get('Common_directories','template'),config.get('Template_files','concord_search'))
         list_files = config.get('Concordance','split_lists').split(',')
         dictionary = {}
@@ -136,6 +168,9 @@ class ConcordanceSearch(QsubProcess):
             f.write(fill_template(template_file,dictionary))
 
     def __launch_split_searches__(self,config):
+        """
+        This launches the scattering processes.
+        """
         self.__fill_sub_qsub_files__(config)
         list_files = config.get('Concordance','split_lists').split(',')
         for list_file in list_files:
@@ -144,6 +179,10 @@ class ConcordanceSearch(QsubProcess):
             self.__launch__(config,qsub_file=qsub_file)
 
     def  __are_split_searches_complete__(self,config):
+        """
+        This checks to see if all of the scattered processes are complete ---
+        if so, return True.
+        """
         list_files = config.get('Concordance','split_lists').split(',')
         for list_file in list_files:
             name = re.sub('.ls','',os.path.basename(list_file))
@@ -156,6 +195,11 @@ class ConcordanceSearch(QsubProcess):
         return True
 
     def __is_complete__(self,config):
+        """
+        Checks to see if the gathering process is complete.
+        If so, the top 5 "scoring" results of the search are
+        stored.
+        """
         if os.path.isfile(self.complete_file):
             pass
         else:

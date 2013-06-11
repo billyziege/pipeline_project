@@ -1,14 +1,21 @@
 import os
 import re
 import sys
-from processes.hiseq.models import Sample,Flowcell
-from processes.models import QsubProcess
+from physical_objects.models import Sample
+from physical_objects.hiseq.models import Flowcell
+from processes.models import SampleQsubProcess
 from processes.pipeline.extract_stats import grab_project_summary_stats, store_stats_in_db
 from template.scripts import fill_template
 
-class Bcbio(QsubProcess):
+class Bcbio(SampleQsubProcess):
+    """
+    Manages and stores information for the bcbio process.  This process runs the fastq to vcf conversion implemented by Brad Chapmann.
+    """
 
     def __init__(self,config,key=int(-1),sample=None,flowcell=None,base_output_dir=None,r1_path=None,r2_path=None,description=None,upload_dir=None,process_name='bcbio',**kwargs):
+        """
+        Initializes the bcbio process object.
+        """
         if sample is None:
             sample = Sample(config,key="dummy_sample_key")
         if sample.__class__.__name__ != "Sample":
@@ -17,7 +24,7 @@ class Bcbio(QsubProcess):
             flowcell = Flowcell(config,key="dummy_flowcell_key")
         if flowcell.__class__.__name__ != "Flowcell":
             raise Exception("Trying to start a bcbio process on a non-flowcell.")
-        QsubProcess.__init__(self,config,key=key,sample=sample,base_output_dir=base_output_dir,process_name=process_name,**kwargs)
+        SampleQsubProcess.__init__(self,config,key=key,sample=sample,base_output_dir=base_output_dir,process_name=process_name,**kwargs)
         self.input_dir = self.output_dir
         self.r1_path = r1_path
         self.r2_path = r2_path
@@ -48,6 +55,11 @@ class Bcbio(QsubProcess):
         self.titv_novel = None
 
     def __fill_template__(self,template_file,output_fname):
+        """
+        Since the bcbio object does not retain all the information necessary for 
+        some of the templates, this finds and adds the additional information and
+        then fills the template file and writes as the output file.
+        """
         dictionary = {}
         for k,v in self.__dict__.iteritems():
             if k == 'sample_key':
@@ -65,6 +77,9 @@ class Bcbio(QsubProcess):
             f.write(string)
     
     def __fill_all_templates__(self,config):
+        """
+        Multiple templates are used for the bcbio process.  This wraps filling all templates.
+        """
         template_dir = config.get('Common_directories','template')
         sample_template = os.path.join(template_dir,config.get('Template_files','sample'))
         system_template = os.path.join(template_dir,config.get('Template_files','system'))
@@ -74,9 +89,17 @@ class Bcbio(QsubProcess):
         self.__fill_template__(qsub_template,self.qsub_file)
         
     def __snps_called__(self):
+        """
+        This checks to see if the sub-process snp_stats has run.
+        """
         return os.path.isfile(self.snp_path)
 
     def __is_complete__(self):
+        """
+        Due to the inclusion of sub-processes (snp_stats and concordance search),
+        this function contains the logic to check to makes sure all of these processes
+        have completed successfully.  If complete, the relevant statistics are stored.
+        """
         if not os.path.isfile(self.complete_file):
             return False
         check_file = os.path.join(self.output_dir,'project-summary.csv')

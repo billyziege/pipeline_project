@@ -9,3 +9,6 @@ qc_pipeline/sge_records/
 
 #Ignore all old versions of files
 *~
+
+#Ignore the python binaries
+*.pyc
