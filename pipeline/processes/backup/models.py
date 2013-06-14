@@ -57,7 +57,7 @@ class Backup(SampleQsubProcess):
         failed_files = self.__failed_files__(config)
         if len(failed_files) > 0:
             if self.retry >= config.get('Backup','retry_threshold'):
-                send_email(__generate_repeated_error_text__(config,failed_files))
+                send_email(self.__generate_repeated_error_text__(config,failed_files))
             self.__fill_qsub_file__(config,r_list=failed_files)
             node = config.get('Backup','node')
             self.__launch__(config,node=node)
@@ -90,3 +90,47 @@ class Backup(SampleQsubProcess):
         subject = fill_template(template_subject,dictionary)
         body = fill_template(template_body,dictionary)
         return subject, body
+
+    def __generate_storage_error_text__(self,config,storage_device):
+        template_subject = os.path.join(config.get('Common_directories','template'),config.get('Backup_email_templates','storage_subject'))
+        template_body = os.path.join(config.get('Common_directories','template'),config.get('Backup_email_templates','storage_body'))
+        dictionary = {}
+        for k,v in self.__dict__.iteritems():
+            dictionary.update({k:str(v)})
+        dictionary.update({'available': str(storage_device.available)})
+        subject = fill_template(template_subject,dictionary)
+        body = fill_template(template_body,dictionary)
+        return subject, body
+
+    def __generate_full_error_text__(self,config,storage_device):
+        template_subject = os.path.join(config.get('Common_directories','template'),config.get('Backup_email_templates','full_subject'))
+        template_body = os.path.join(config.get('Common_directories','template'),config.get('Backup_email_templates','full_body'))
+        dictionary = {}
+        for k,v in self.__dict__.iteritems():
+            dictionary.update({k:str(v)})
+        dictionary.update({'available': str(storage_device.available)})
+        dictionary.update({'required_fastq_size': str(config.get('Storage','required_fastq_size'))})
+        subject = fill_template(template_subject,dictionary)
+        body = fill_template(template_body,dictionary)
+        return subject, body
+
+    def __launch__(self,config,storage_device,node_list=None):
+        """
+        Checks to make sure there is enough storage.  If
+        not, sends email.  If so, sends the job to SGE and 
+        records pertinent information.
+        """
+        #If storage device is full, send a notification and abort.
+        if storage_device.__is_full__(config.get('Storage','required_fastq_size')):
+            send_email(self.__generate_full_error_text__(config,storage_device))
+            return False
+        #This differs from the previous check by the fact that the previous does not
+        #account for jobs that are currently being copied.  This error is not as 
+        #restrictive due to the fact that the required_fastq_size should be larger than
+        #the actual fastq size thus leaving additional storage once complete.
+        if not storage_device.__is_available__(config.get('Storage','required_fastq_size')):
+            send_email(self.__generate_storage_error_text__(config,storage_device))
+            return False
+        SampleQsubProcess.__launch__(self,config,node_list=node_list)
+        return True
+

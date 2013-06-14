@@ -76,14 +76,17 @@ class QsubProcess(GenericProcess):
             self.qsub_file = os.path.join(self.output_dir, self.process_name + '.sh')
         self.job_id = None
     
-    def __launch__(self,config,qsub_file=None,node=None,queue_name='blades'):
+    def __launch__(self,config,qsub_file=None,node_list=None,queue_name='blades'):
         """
         Sends the job to SGE and records pertinent information.
         """
         if os.path.isfile(self.complete_file):
             os.remove(self.complete_file)
-        if node is None:
-            node = grab_good_node(config)
+        try:
+            node = grab_good_node(config,node_list=node_list)
+        except Exception, msg:
+            sys.stderr.write("{0}\n".format(msg))
+            return False
         if qsub_file is None:
             qsub_file = self.qsub_file
         hostname = 'hostname=' + node
@@ -91,7 +94,7 @@ class QsubProcess(GenericProcess):
         command = ['qsub', '-l', hostname, '-l', qname, qsub_file]
         proc = subprocess.Popen(command,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
         out = proc.stdout.read()
-        expectation = "Your job (\d+) \(\"" + self.qsub_file  + "\"\) has been submitted"
+        expectation = "Your job ([0-9]+) \(\"" + self.qsub_file  + "\"\) has been submitted"
         self.state = 'Running'
         if re.search(expectation, out):
             self.jobid = match.group(1)

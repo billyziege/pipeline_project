@@ -70,12 +70,22 @@ def lightest_working(nodes):
             min_nodes.update({name:node})
     return min_nodes
     
-def grab_good_node(config):
+def grab_good_node(config,node_list=None):
     nodes = initialize_nodes()
     nodes = mark_broken(nodes,config)
     nodes = note_jobs(nodes)
-    min_nodes = lightest_working(nodes) 
-    return random.choice(min_nodes.keys())
+    if node_list is None:
+        min_nodes = lightest_working(nodes)
+    else:
+        subset_nodes = {}
+        for node_key, node in nodes.keys():
+            if node_key in node_list:
+                subset_nodes.update({node_key: node})
+        min_nodes = lightest_working(subset_nodes)
+    if len(min_nodes.keys()) < 1:
+        raise Exception("No nodes available\n")
+    return random.choice(min_nodes.keys()) 
+
     
 if __name__ == '__main__':
     config = ConfigParser.ConfigParser()
