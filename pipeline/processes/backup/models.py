@@ -11,7 +11,7 @@ class Backup(SampleQsubProcess):
     Manage and stores info for the Zcat process.  This is the process that decompresses and moves fastq files from storage to the processing directories. 
     """
 
-    def __init__(self,config,key=int(-1),sample=None,flowcell=None,base_output_dir=None,r1_path=None,r2_path=None,description=None,upload_dir=None,process_name='bcbio',**kwargs):
+    def __init__(self,config,key=int(-1),sample=None,base_output_dir=None,location=None,process_name='backup',**kwargs):
         """
         Initializes the backup process object.  Requires config details
         """
@@ -19,6 +19,8 @@ class Backup(SampleQsubProcess):
             base_output_dir = config.get('Backup','dir')
         SampleQsubProcess.__init__(self,config,key=key,sample=sample,base_output_dir=base_output_dir,process_name=process_name,**kwargs)
         self.retry = 0
+        if location is None:
+            self.location = config.get('Backup','dir_name')
 
     def __fill_qsub_file__(self,config,r_list=None):
         """
