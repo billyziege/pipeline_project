@@ -44,15 +44,15 @@ def run_pipelines_with_enough_space(config,storage_devices,mockdb,pipeline_class
     except KeyError:
         return 1
     for pipeline in state_dict['Initialized']:
-        enough_space = run_qc_pipeline_with_enough_space(config,storage_devices,pipeline,mockdb)
+        enough_space = run_pipeline_with_enough_space(config,storage_devices,pipeline,mockdb)
         if enough_space != True:
             break
     return 1
 
-def run_qc_pipeline_with_enough_space(config,storage_devices,pipeline,mockdb):
+def run_pipeline_with_enough_space(config,storage_devices,pipeline,mockdb):
     if pipeline.zcat_key != None:
         raise FormattingError("The pipeline has a zcat key but isn't initiated.")
-    if int(pipeline.storage_needed) < int(storage_devices[pipeline.running_location].available):
+    if storage_devices[pipeline.running_location].__is_available__(config.get('Storage','needed'))):
         things_to_do_if_starting_pipeline(config,mockdb,pipeline)
         return True
     return False
