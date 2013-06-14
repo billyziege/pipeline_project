@@ -2,10 +2,10 @@ import sys
 import argparse
 import ConfigParser
 from mockdb.initiate_mockdb import initiate_mockdb,save_mockdb
-from manage_storage.models import StorageDevice
 from manage_storage.scripts import initiate_storage_devices, add_waiting_storage, add_running_storage
 from processes.control import maintain_sequencing_run_objects, initialize_pipeline_for_finished_sequencing_runs,advance_running_qc_pipelines
 from processes.control import advance_running_std_pipelines,run_pipelines_with_enough_space
+from processes.control import continue_backup_processes
 from processes.transitions import things_to_do_if_initializing_pipeline_with_input_directory
 
 parser = argparse.ArgumentParser(description='Manages data and submits new jobs.')
@@ -32,6 +32,9 @@ if options.source_dir != None and options.dest_dir != None:
 else:
     maintain_sequencing_run_objects(config,mockdb)
     initialize_pipeline_for_finished_sequencing_runs(config,storage_devices,mockdb)
+
+#Complete any backup process that have been initiated by a finished sequencing run.
+continue_backup_processes(config,storage_devices,mockdb)
 
 #Advance the running pipelines.  If a step is done, preceed to the next.  If the pipeline is done, complete it.
 advance_running_qc_pipelines(config,storage_devices,mockdb)

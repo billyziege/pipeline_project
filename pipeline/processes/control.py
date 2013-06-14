@@ -10,6 +10,11 @@ from processes.transitions import things_to_do_if_bcbio_cleaning_complete
 from processes.parsing import parse_sequencing_run_dir
 
 def maintain_sequencing_run_objects(config,mockdb):
+    """
+    Reads in the directories in the casava output directory and compares it to what's in the 
+    SequencingRun database.  If it is a new directory, a new sequencing run object is created in
+    the Running state.
+    """
     monitoring_dirs = set(list_monitoring_dirs(config.get('Common_directories','casava_output')))
     db_dirs = set(mockdb['SequencingRun'].__attribute_value_to_key_dict__('output_dir').keys())
     new_dirs = monitoring_dirs.difference(db_dirs)
@@ -28,6 +33,10 @@ def maintain_sequencing_run_objects(config,mockdb):
     return 1
 
 def initialize_pipeline_for_finished_sequencing_runs(config,storage_devices,mockdb):
+    """
+    Checks running SequencingRuns and determines if they are complete.  If so, 
+    the sequencing run is deligated to another function to continue with the next step. 
+    """
     state_dict = mockdb['SequencingRun'].__attribute_value_to_object_dict__('state')
     try:
         for seq_run in state_dict['Running']:
@@ -37,7 +46,26 @@ def initialize_pipeline_for_finished_sequencing_runs(config,storage_devices,mock
         pass
     return 1
     
+def continue_backup_processes(config,storage_devices,mockdb):
+    """
+    Checks running SequencingRuns and determines if they are complete.  If so, 
+    the sequencing run is deligated to another function to continue with the next step. 
+    """
+    state_dict = mockdb['Backup'].__attribute_value_to_object_dict__('state')
+    try:
+        for backup in state_dict['Running']:
+            if backup.__is_complete__(config,storage_devices[backup.location]):
+                backup.__finish__()
+    except KeyError:
+        pass
+    return 1
+
 def run_pipelines_with_enough_space(config,storage_devices,mockdb,pipeline_class_name):
+    """
+    Identifies pipelines that are ready to run.  If they are ready, they are passed to
+    a subfunction to determine if there is enough storage.
+    """
+    state_dict = mockdb['SequencingRun'].__attribute_value_to_object_dict__('state')
     state_dict = mockdb[pipeline_class_name].__attribute_value_to_object_dict__('state')
     try:
         state_dict['Initialized']
@@ -50,6 +78,11 @@ def run_pipelines_with_enough_space(config,storage_devices,mockdb,pipeline_class
     return 1
 
 def run_pipeline_with_enough_space(config,storage_devices,pipeline,mockdb):
+    """
+    Checks to make sure there is enough space and that the first step of the
+    pipeline hasn't been started.  Then passes the pipeline to another function
+    where the next steps are intiated.
+    """
     if pipeline.zcat_key != None:
         raise FormattingError("The pipeline has a zcat key but isn't initiated.")
     if storage_devices[pipeline.running_location].__is_available__(config.get('Storage','needed'))):
@@ -58,26 +91,36 @@ def run_pipeline_with_enough_space(config,storage_devices,pipeline,mockdb):
     return False
 
 def advance_running_qc_pipelines(config,storage_devices,mockdb):
+    """
+    Identifies all pipelines that are currently running (if any).  Passes these
+    pipelines to a subfunction to check the individual steps in the pipeline.
+    """ 
     state_dict = mockdb['QualityControlPipeline'].__attribute_value_to_object_dict__('state')
     try:
         for pipeline in state_dict['Running']:
             advance_running_qc_pipeline(config,storage_devices,pipeline,mockdb)
-    except KeyError, msg:
-        print msg
+    except KeyError:
         pass
     return 1
 
 def advance_running_std_pipelines(config,storage_devices,mockdb):
+    """
+    Same as the advance_running_qc_pipelines function, except for the StandardPipleine pipeline.
+    """ 
     state_dict = mockdb['StandardPipeline'].__attribute_value_to_object_dict__('state')
     try:
         for pipeline in state_dict['Running']:
             advance_running_std_pipeline(config,storage_devices,pipeline,mockdb)
-    except KeyError, msg:
-        print msg
+    except KeyError:
         pass
     return 1
 
 def advance_running_qc_pipeline(config,storage_devices,pipeline,mockdb):
+    """
+    Determines which stage the pipeline currently is running, determines
+    if that stage is complete, and then passes the relevant
+    objects to subfunctions that handle the next step.
+    """
     if pipeline.zcat_key == None: #zcat hasn't begun, which should not be the case.
         pipeline.state = 'Initialized'
         raise FormattingError("The pipeline somehow began running before zcatting.")
@@ -104,6 +147,9 @@ def advance_running_qc_pipeline(config,storage_devices,pipeline,mockdb):
     return 1
 
 def advance_running_std_pipeline(config,storage_devices,pipeline,mockdb):
+    """
+    Same as the advance_running_qc_pipeline function, except for the StandardPipleine pipeline.
+    """ 
     if pipeline.zcat_key == None: #zcat hasn't begun, which should not be the case.
         pipeline.state = 'Initialized'
         raise FormattingError("The pipeline somehow began running before zcatting.")

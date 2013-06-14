@@ -16,7 +16,7 @@ class Backup(SampleQsubProcess):
         Initializes the backup process object.  Requires config details
         """
         if base_output_dir is None:
-            base_output_dir = config.get('Backup','dir')
+            base_output_dir = config.get('Backup','output_dir')
         SampleQsubProcess.__init__(self,config,key=key,sample=sample,base_output_dir=base_output_dir,process_name=process_name,**kwargs)
         self.retry = 0
         if location is None:
@@ -46,7 +46,7 @@ class Backup(SampleQsubProcess):
         with open(self.qsub_file,'w') as f:
             f.write(fill_template(template_file,dictionary))
 
-    def __is_complete__(self,config):
+    def __is_complete__(self,config,storage_device):
         """
         Check the complete file of the backup process, retry copying files
         where the keys for the input and output files are not the
@@ -59,8 +59,7 @@ class Backup(SampleQsubProcess):
             if self.retry >= config.get('Backup','retry_threshold'):
                 send_email(self.__generate_repeated_error_text__(config,failed_files))
             self.__fill_qsub_file__(config,r_list=failed_files)
-            node = config.get('Backup','node')
-            self.__launch__(config,node=node)
+            self.__launch__(config,storage_device)
             self.retry += 1
             return False
         return True
@@ -131,6 +130,8 @@ class Backup(SampleQsubProcess):
         if not storage_device.__is_available__(config.get('Storage','required_fastq_size')):
             send_email(self.__generate_storage_error_text__(config,storage_device))
             return False
+        if node_list is None:
+            node_list = config.get('Backup','nodes').split(',')
         SampleQsubProcess.__launch__(self,config,node_list=node_list)
         return True
 
