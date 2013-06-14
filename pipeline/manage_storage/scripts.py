@@ -61,6 +61,9 @@ def initiate_storage_devices(config):
     storage_devices = {}
     for name, directory in location_dirs.iteritems():
         storage_devices.update({name:StorageDevice(directory=directory,name=name,limit=config.get('Storage','limit'))})
+    backup_dir = config.get("Backup","dir")
+    name = config.get("Backup","dir_name")
+    storage_devices.update({name:StorageDevice(directory=directory,name=name)})
     return storage_devices
 
 

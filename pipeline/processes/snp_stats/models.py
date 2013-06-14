@@ -17,8 +17,6 @@ class SnpStats(SampleQsubProcess):
         """
         Initializes the snp stats process.
         """
-        if sample is None:
-            sample = Sample(config,key="dummy_sample_key")
         if bcbio is None:
             bcbio = Bcbio(config,key=int(-1))
         if bcbio.__class__.__name__ != "Bcbio":
@@ -101,8 +99,6 @@ class ConcordanceSearch(SampleQsubProcess):
         """
         Initializes the concordance search process.
         """
-        if sample is None:
-            sample = Sample(config,key="dummy_sample_key")
         if snp_stats is None:
             snp_stats = SnpStats(config,key=int(-1))
         if snp_stats.__class__.__name__ != "SnpStats":

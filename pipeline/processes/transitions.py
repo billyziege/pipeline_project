@@ -20,7 +20,7 @@ def things_to_do_if_zcat_complete(config,mockdb,pipeline,zcat):
 def things_to_do_if_bcbio_complete(config,mockdb,pipeline,bcbio):
     bcbio.__finish__()
     sample = mockdb['Sample'].__get__(config,pipeline.sample_key)
-    clean_bcbio = mockdb['CleanBcbio'].__new__(config,sample=sample,input_dir=bcbio.output_dir,output_dir=pipeline.output_dir)
+    clean_bcbio = mockdb['CleanBcbio'].__new__(config,sample=sample,input_dir=bcbio.output_dir,output_dir=pipeline.output_dir,process_name='clean')
     clean_bcbio.__fill_qsub_file__(config)
     clean_bcbio.__launch__(config)
     pipeline.cleaning_key = clean_bcbio.key

@@ -47,7 +47,7 @@ class GenericProcess(NumberedObject):
         self.end_time = time
         self.end_date = date
 
-class QsubProcess(GenericaProcess):
+class QsubProcess(GenericProcess):
     """
     Anything process submitted via qsub requires additional information.  This class keeps track of that information
     """
@@ -80,6 +80,8 @@ class QsubProcess(GenericaProcess):
         """
         Sends the job to SGE and records pertinent information.
         """
+        if os.path.isfile(self.complete_file):
+            os.remove(self.complete_file)
         if node is None:
             node = grab_good_node(config)
         if qsub_file is None:

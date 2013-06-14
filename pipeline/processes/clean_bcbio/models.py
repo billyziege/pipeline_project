@@ -10,16 +10,6 @@ class CleanBcbio(SampleQsubProcess):
     run directory and moves the result back to storage. 
     """
 
-    def __init__(self,config,key=int(-1),sample=None,input_dir=None,base_output_dir=None,output_dir=None,process_name='clean',**kwargs):
-    """
-    Initializes clean bcbio process.
-    """
-        if sample is None:
-            sample = Sample(config,key="dummy_sample_key")
-        if sample.__class__.__name__ != "Sample":
-            raise Exception("Trying to start a cleaning process on a non-sample.")
-        SampleQsubProcess.__init__(self,config,key=key,sample=sample,input_dir=input_dir,base_output_dir=base_output_dir,output_dir=output_dir,process_name=process_name,**kwargs)
-
     def __fill_qsub_file__(self,config):
     """
     Simply fills the clean bcbio template with appropriate info. 

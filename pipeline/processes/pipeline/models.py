@@ -6,6 +6,7 @@ from physical_objects.hiseq.models import Flowcell
 from processes.models import SampleQsubProcess
 from processes.pipeline.extract_stats import grab_project_summary_stats, store_stats_in_db
 from template.scripts import fill_template
+from sge_email.scripts import send_email
 
 class Bcbio(SampleQsubProcess):
     """
@@ -16,10 +17,6 @@ class Bcbio(SampleQsubProcess):
         """
         Initializes the bcbio process object.
         """
-        if sample is None:
-            sample = Sample(config,key="dummy_sample_key")
-        if sample.__class__.__name__ != "Sample":
-            raise Exception("Trying to start a bcbio process on a non-sample.")
         if flowcell is None:
             flowcell = Flowcell(config,key="dummy_flowcell_key")
         if flowcell.__class__.__name__ != "Flowcell":
@@ -94,7 +91,7 @@ class Bcbio(SampleQsubProcess):
         """
         return os.path.isfile(self.snp_path)
 
-    def __is_complete__(self):
+    def __is_complete__(self,config):
         """
         Due to the inclusion of sub-processes (snp_stats and concordance search),
         this function contains the logic to check to makes sure all of these processes
@@ -105,13 +102,14 @@ class Bcbio(SampleQsubProcess):
         check_file = os.path.join(self.output_dir,'project-summary.csv')
         #If the process is complete, check to make sure that the check file is created.  If not, send email.
         if not os.path.isfile(check_file):
-            template_subject = os.path.join(config.get('Common_directories','template'),config.get('Bcbio_email_templates','general_subject'))
-            template_body = os.path.join(config.get('Common_directories','template'),config.get('Bcbio_email_templates','general_body'))
-            subject = fill_template(template_subject,self.__dict__)
-            body = fill_template(template_body, self.__dict__)
-            send_email(subject,body)
+            send_email(self.__generate_general_error_text__(config))
             return False
         store_stats_in_db(self)
         return True
 
-        
+    def __generate_general_error_text__(self,config):
+        template_subject = os.path.join(config.get('Common_directories','template'),config.get('Bcbio_email_templates','general_subject'))
+        template_body = os.path.join(config.get('Common_directories','template'),config.get('Bcbio_email_templates','general_body'))
+        subject = fill_template(template_subject,self.__dict__)
+        body = fill_template(template_body, self.__dict__)
+        return subject, body

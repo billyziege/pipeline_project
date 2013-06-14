@@ -94,7 +94,7 @@ def advance_running_qc_pipeline(config,storage_devices,pipeline,mockdb):
     if pipeline.cleaning_key is None: #cleaning hasn't begun
         bcbio = mockdb['Bcbio'].__get__(config,int(pipeline.bcbio_key))
         snp_stats = mockdb['SnpStats'].__get__(config,int(pipeline.snp_stats_key))
-        if bcbio.__is_complete__() and snp_stats.__is_complete__(config,mockdb):
+        if bcbio.__is_complete__(config) and snp_stats.__is_complete__(config,mockdb):
             things_to_do_if_bcbio_complete(config,mockdb,pipeline,bcbio)
             snp_stats.__finish__()
         return 1
@@ -114,7 +114,7 @@ def advance_running_std_pipeline(config,storage_devices,pipeline,mockdb):
         return 1
     if pipeline.cleaning_key is None: #cleaning hasn't begun
         bcbio = mockdb['Bcbio'].__get__(config,int(pipeline.bcbio_key))
-        if bcbio.__is_complete__():
+        if bcbio.__is_complete__(config):
             things_to_do_if_bcbio_complete(config,mockdb,pipeline,bcbio)
         return 1
     clean_bcbio = mockdb['CleanBcbio'].__get__(config,int(pipeline.cleaning_key))
