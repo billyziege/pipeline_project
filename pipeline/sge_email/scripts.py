@@ -2,8 +2,8 @@ import smtplib
 from email.mime.text import MIMEText
 from sge_email.models import SGEEmailObject
 
-def send_email(subject,message):
-    sgeemail = SGEEmailObject(subject=subject,message=message)
+def send_email(subject,message,recipients=None):
+    sgeemail = SGEEmailObject(subject=subject,message=message,recipients=recipients)
     #fp = open(filename, 'rb')
     # Create a text/plain message
     msg = MIMEText(sgeemail.caveat + sgeemail.message + sgeemail.salutation)

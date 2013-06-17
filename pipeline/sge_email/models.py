@@ -1,9 +1,12 @@
 class SGEEmailObject:
     
-    def __init__(self,subject=None,message=None,*args,**kwargs):
+    def __init__(self,subject=None,message=None,recipients=None,*args,**kwargs):
         self.sender = 'zerbeb@humgen.ucsf.edu'
         self.sender_name = 'Brandon Zerbe'
-        self.recipients = ['zerbeb@humgen.ucsf.edu','tanglf@humgen.ucsf.edu','KvaleM@humgen.ucsf.edu']
+        if recipients is None:
+            self.recipients = ['zerbeb@humgen.ucsf.edu','tanglf@humgen.ucsf.edu','KvaleM@humgen.ucsf.edu']
+        else:
+            self.recipients = recipients.split(',')
         self.password = 'P@ssword'
         self.usrname = 'ccrjobs'
         self.domain = 'anesthesia.ucsf.edu'
