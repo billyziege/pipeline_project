@@ -1,4 +1,5 @@
 import os
+from physical_objects.models import Sample
 from mockdb.models import KeyedObject
 # Create your models here.
 

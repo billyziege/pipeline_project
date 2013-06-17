@@ -12,7 +12,7 @@ parser = argparse.ArgumentParser(description='Manages data and submits new jobs.
 parser.add_argument('-i', dest='source_dir', help='fastq source', default=None)
 parser.add_argument('-o', dest='dest_dir', help='vcf destination', default=None)
 parser.add_argument('-p', '--pipeline', dest='pipeline', help='The version of the pipeline', default='QualityControlPipeline')
-parser.add_argument('-c', '--config', dest='config_file', help='The configuration file', default='/mnt/iscsi_space/zerbeb/qc_pipeline_project/qc_pipeline/config/qc.cfg')
+parser.add_argument('-c', '--config', dest='config_file', help='The configuration file', default='/mnt/iscsi_space/zerbeb/pipeline_project/pipeline/config/qc.cfg')
 options = parser.parse_args()
 
 #Load config

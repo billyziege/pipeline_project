@@ -50,13 +50,17 @@ def child_classes(cls, config=None, clses=[]):
 
 #This function returns a list of all classes stored in CLASS_DIRs
 def classes_list(config):
+    """
+    Lists classes stored in the the models.py files
+    stored in the class dirs parameter.
+    """
     py_scripts = []
     for cls_dir in config.get('Common_directories','classes').split(","):
         files = [os.path.join(cls_dir,fname) for fname in os.listdir(cls_dir) if os.path.isfile(os.path.join(cls_dir,fname))]
         py_scripts.extend([fname for fname in files if re.search("models.py$",fname)])
     names = {}
     for fname in py_scripts:
-        module_front = re.sub('/','.',re.sub(config.get('Common_directories','project') + "/",'',re.sub("/models.py$","",fname)))
+        module_front = re.sub('/','.',re.sub(config.get('Common_directories','program') + "/",'',re.sub("/models.py$","",fname)))
         with open(fname, 'r') as f:
             ms = re.finditer("\nclass (\w+)",f.read())
             for m in ms:

@@ -107,7 +107,7 @@ class ConcordanceSearch(SampleQsubProcess):
         output_dir = input_dir
         SampleQsubProcess.__init__(self,config,key=key,sample=sample,input_dir=input_dir,output_dir=output_dir,process_name=process_name,**kwargs)
         self.snp_path = snp_stats.snp_path
-        self.first_match = sample.key
+        self.first_match = self.sample_key
         self.first_concordance = snp_stats.percentage_concordance
         self.second_match = None
         self.second_concordance = None

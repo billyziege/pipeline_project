@@ -85,7 +85,7 @@ def run_pipeline_with_enough_space(config,storage_devices,pipeline,mockdb):
     """
     if pipeline.zcat_key != None:
         raise FormattingError("The pipeline has a zcat key but isn't initiated.")
-    if storage_devices[pipeline.running_location].__is_available__(config.get('Storage','needed'))):
+    if storage_devices[pipeline.running_location].__is_available__(config.get('Storage','needed')):
         things_to_do_if_starting_pipeline(config,mockdb,pipeline)
         return True
     return False

@@ -16,8 +16,8 @@ class Zcat(SampleQsubProcess):
         Initializes the zcat process object.
         """
         SampleQsubProcess.__init__(self,config,key=key,sample=sample,input_dir=input_dir,base_output_dir=base_output_dir,process_name=process_name,**kwargs)
-        r1_fname = sample.key + '_R1.fastq'
-        r2_fname = sample.key + '_R2.fastq'
+        r1_fname = self.sample_key + '_R1.fastq'
+        r2_fname = self.sample_key + '_R2.fastq'
         self.r1_path = os.path.join(self.output_dir,r1_fname)
         self.r2_path = os.path.join(self.output_dir,r2_fname)
 

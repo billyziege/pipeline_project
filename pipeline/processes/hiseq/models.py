@@ -1,6 +1,6 @@
 import os
 from time import strftime, localtime
-from physical_object.hiseq.models import Flowcell, HiSeqMachine
+from physical_objects.hiseq.models import Flowcell, HiSeqMachine
 from processes.models import GenericProcess
 # Create your models here.
 
@@ -18,7 +18,7 @@ class SequencingRun(GenericProcess):
             flowcell = Flowcell(config,key="dummy_flowcell_key")
         if machine is None:
             machine = HiSeqMachine(config,key="dummy_machine_key")
-        GenericProcess.__init__(self,config,key=key,date=date,time=begin_timestamp,**kwargs):
+        GenericProcess.__init__(self,config,key=key,date=date,time=begin_timestamp,**kwargs)
         self.begin_timestamp = begin_timestamp
         self.end_timestamp = end_timestamp
         self.flowcell_key = flowcell.key

@@ -130,7 +130,7 @@ class SampleQsubProcess(QsubProcess):
             self.output_dir = os.path.join(base_output_dir,self.sample_key + '-' + str(date))
         else:
             self.output_dir = output_dir
-        QsubProcess.__init____init__(self,config,key=key,input_dir=input_dir,base_output_dir=base_output_dir,output_dir=self.output_dir,date=date,time=time,process_name='sample_qsub',complete_file=comple_file,**kwargs)
+        QsubProcess.__init__(self,config,key=key,input_dir=input_dir,base_output_dir=base_output_dir,output_dir=self.output_dir,date=date,time=time,process_name='sample_qsub',complete_file=complete_file,**kwargs)
 
 
 class QualityControlPipeline(GenericProcess):

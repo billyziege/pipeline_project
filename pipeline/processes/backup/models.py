@@ -40,8 +40,8 @@ class Backup(SampleQsubProcess):
             key_in = os.path.join(config.get('Backup','key_repository'),fname + config.get('Backup','key_extension'))
             key_out = os.path.join(self.output_dir,fname + config.get('Backup','key_extension'))
             commands += "cd " + self.input_dir + "\n " + copy   + " " + fname + " " + self.output_dir + "\n"
-            commands += "cd " + self.input_dir + "\n " + keygen + " " + fname + " > " + key_in "\n"
-            commands += "cd " + self.output_dir + "\n " + keygen + " " + fname + " > " + key_out "\n"
+            commands += "cd " + self.input_dir + "\n " + keygen + " " + fname + " > " + key_in + "\n"
+            commands += "cd " + self.output_dir + "\n " + keygen + " " + fname + " > " + key_out + "\n"
         dictionary.update({'commands': commands})
         with open(self.qsub_file,'w') as f:
             f.write(fill_template(template_file,dictionary))

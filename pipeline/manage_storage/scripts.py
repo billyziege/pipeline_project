@@ -36,7 +36,7 @@ def add_pipeline_running_storage(config,storage_devices,mockdb,pipeline_name):
         pass
     return 1
 
-def add_backup_running_storage(config,storage_devices,mockdb,backup_name)
+def add_backup_running_storage(config,storage_devices,mockdb,backup_name):
     """
     Backing up across slow connections takes time, and this function
     keeps track of the expected requirements placed on the backup device
