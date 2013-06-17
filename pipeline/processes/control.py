@@ -65,7 +65,6 @@ def run_pipelines_with_enough_space(config,storage_devices,mockdb,pipeline_class
     Identifies pipelines that are ready to run.  If they are ready, they are passed to
     a subfunction to determine if there is enough storage.
     """
-    state_dict = mockdb['SequencingRun'].__attribute_value_to_object_dict__('state')
     state_dict = mockdb[pipeline_class_name].__attribute_value_to_object_dict__('state')
     try:
         state_dict['Initialized']

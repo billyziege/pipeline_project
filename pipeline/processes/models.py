@@ -94,10 +94,12 @@ class QsubProcess(GenericProcess):
         command = ['qsub', '-l', hostname, '-l', qname, qsub_file]
         proc = subprocess.Popen(command,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
         out = proc.stdout.read()
+        print out
         expectation = "Your job ([0-9]+) \(\"" + self.qsub_file  + "\"\) has been submitted"
         self.state = 'Running'
         if re.search(expectation, out):
             self.jobid = match.group(1)
+            print self.jobid
             return True
         return False
 
@@ -130,7 +132,7 @@ class SampleQsubProcess(QsubProcess):
             self.output_dir = os.path.join(base_output_dir,self.sample_key + '-' + str(date))
         else:
             self.output_dir = output_dir
-        QsubProcess.__init__(self,config,key=key,input_dir=input_dir,base_output_dir=base_output_dir,output_dir=self.output_dir,date=date,time=time,process_name='sample_qsub',complete_file=complete_file,**kwargs)
+        QsubProcess.__init__(self,config,key=key,input_dir=input_dir,base_output_dir=base_output_dir,output_dir=self.output_dir,date=date,time=time,process_name=process_name,complete_file=complete_file,**kwargs)
 
 
 class QualityControlPipeline(GenericProcess):

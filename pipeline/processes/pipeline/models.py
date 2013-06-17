@@ -68,7 +68,7 @@ class Bcbio(SampleQsubProcess):
                 except ValueError:
                     pass
             dictionary.update({k:str(v)})
-        dictionary.update({'restats_tail',self.restats_file + '.tail'})
+        dictionary.update({'restats_tail': self.restats_file + '.tail'})
         with open(output_fname,'w') as f:
             string = fill_template(template_file,dictionary)
             f.write(string)
