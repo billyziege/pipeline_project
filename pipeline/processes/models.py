@@ -94,12 +94,12 @@ class QsubProcess(GenericProcess):
         command = ['qsub', '-l', hostname, '-l', qname, qsub_file]
         proc = subprocess.Popen(command,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
         out = proc.stdout.read()
-        print out
-        expectation = "Your job ([0-9]+) \(\"" + self.qsub_file  + "\"\) has been submitted"
+        submission_file = re.sub(self.output_dir + "/","",self.qsub_file)
+        expectation = "Your job ([0-9]+) \(\"" + submission_file  + "\"\) has been submitted"
         self.state = 'Running'
-        if re.search(expectation, out):
+        match = re.search(expectation, out)
+        if match:
             self.jobid = match.group(1)
-            print self.jobid
             return True
         return False
 
