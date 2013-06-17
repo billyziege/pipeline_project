@@ -75,6 +75,7 @@ class QsubProcess(GenericProcess):
         if qsub_file is None:
             self.qsub_file = os.path.join(self.output_dir, self.process_name + '.sh')
         self.job_id = None
+        self.fail_reported = False #Hook to provide only a single e-mail when job fails.
     
     def __launch__(self,config,qsub_file=None,node_list=None,queue_name='blades'):
         """
@@ -97,6 +98,7 @@ class QsubProcess(GenericProcess):
         submission_file = re.sub(self.output_dir + "/","",self.qsub_file)
         expectation = "Your job ([0-9]+) \(\"" + submission_file  + "\"\) has been submitted"
         self.state = 'Running'
+        self.fail_reported = False
         match = re.search(expectation, out)
         if match:
             self.jobid = match.group(1)

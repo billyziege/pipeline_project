@@ -127,8 +127,9 @@ class Backup(SampleQsubProcess):
         #account for jobs that are currently being copied.  This error is not as 
         #restrictive due to the fact that the required_fastq_size should be larger than
         #the actual fastq size thus leaving additional storage once complete.
-        if not storage_device.__is_available__(config.get('Storage','required_fastq_size')):
+        if not storage_device.__is_available__(config.get('Storage','required_fastq_size')) and self.fail_reported == False:
             send_email(self.__generate_storage_error_text__(config,storage_device))
+            self.fail_reported = True
             return False
         if node_list is None:
             node_list = config.get('Backup','nodes').split(',')

@@ -100,9 +100,10 @@ class Bcbio(SampleQsubProcess):
         if not os.path.isfile(self.complete_file):
             return False
         check_file = os.path.join(self.output_dir,'project-summary.csv')
-        #If the process is complete, check to make sure that the check file is created.  If not, send email.
-        if not os.path.isfile(check_file):
+        #If the process is complete, check to make sure that the check file is created.  If not, send email once.
+        if not os.path.isfile(check_file) and self.fail_reported == False:
             send_email(self.__generate_general_error_text__(config))
+            self.fail_reported = True
             return False
         store_stats_in_db(self)
         return True
