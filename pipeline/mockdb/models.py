@@ -299,7 +299,7 @@ class SetOfKeyedObjects:
             if begin_fresh == True:
                 union_ids = set(self.objects.keys())
             else:
-                stored_db = SetOfKeyedObjects(cls=cls)
+                stored_db = self.__class__(cls=cls)
                 stored_db.__load__(config)
                 stored_ids = set(stored_db.objects.keys())
                 current_ids = set(self.objects.keys())
@@ -322,6 +322,34 @@ class SetOfKeyedObjects:
                         header, string = stored_db.objects[i].__contents_as_string__(config,base_dir=base_dir,cls=cls,keys=out_keys)
                     f.write(string + "\n")
 
+    def __combine__(self,other):
+        """
+        Adds the entries with the appropriate classes from other
+        into self.  If there all entries of other are from a class
+        that self does not contain, doesn't do anything.
+        """
+        clses = self.__class_set__()
+        for cls in clses:
+            current_ids = set([cid for cid in self.objects.keys() if self.objects[cid].obj_type == cls.__name__])
+            other_ids = set([cid for cid in self.objects.keys() if self.objects[cid].obj_type == cls.__name__])
+            for oid in other_ids:
+                if oid in current_ids:
+                    continue
+                self.objects.update({oid: other.objects[oid]})
+
+    def __remove_entry__(self,config,key):
+        """
+        Loads all entries within the db file into self,
+        removes the entry with the provided key, and then
+        writes all the information back to the database.
+        """
+        stored_db = self.__class__(cls=cls)
+        stored_db.__load__(config)
+        self.__combine__(stored_db)
+        del(self.objects[key])
+        self.overwrite(config,begin_fresh=True)
+        
+
 class SetOfNumberedObjects(SetOfKeyedObjects):
 
     def __init__(self,cls=NumberedObject,*args,**kwargs):
@@ -329,9 +357,19 @@ class SetOfNumberedObjects(SetOfKeyedObjects):
 	SetOfKeyedObjects.__init__(self,self.cls,*args,**kwargs)
 
     def __max_key__(self,config):
+        keys = self.objects.keys()
+        #Load database and children databases to get 
+        #access to their keys
         other = self.__class__(cls=self.cls)
-        other.__load__(config)
-        keys = other.objects.keys() + self.objects.keys()
+        other.__load__(config,no_children=False)
+        keys += other.objects.keys()
+        anc_clses = ancestor_classes(self.cls)
+        #Load ancestor databases to get 
+        #access to their keys
+        for cls in anc_clses:
+            other = cls(cls=cls)
+            other.__load__(config)
+            keys += other.objects.keys()
         if keys == []:
             return 0
         keys.sort(key=int)

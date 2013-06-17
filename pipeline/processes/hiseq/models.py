@@ -46,3 +46,15 @@ class SequencingRun(GenericProcess):
         Checks the complete file and handles any notifications.
         """
         return os.path.isfile(self.complete_file)
+
+class HighThroughputRun(SequencingRun):
+    """
+    Sequencing run with 8 lanes completed in 11 days.
+    """
+    pass
+
+class RapidRun(SequencingRun):
+    """
+    Sequencing run with 2 lanes completed in 27 hours.
+    """
+    pass
