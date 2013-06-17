@@ -10,7 +10,7 @@ class SequencingRun(GenericProcess):
     to search the hiseq data directory for additional information.
     """
 
-    def __init__(self,config,key=int(-1),flowcell=None,machine=None,date='dummy',run_number='dummy',output_dir=None,complete_file=None,side='dummy',begin_timestamp=None,end_timestamp=None,operator=None,process_name='sequencing_run',*args,**kwargs):
+    def __init__(self,config,key=int(-1),flowcell=None,machine=None,date='dummy',run_number='dummy',output_dir=None,complete_file=None,side='dummy',begin_timestamp=None,end_timestamp=None,operator=None,run_type=None,process_name='sequencing_run',*args,**kwargs):
         """
         Initializes the object.
         """
@@ -28,6 +28,7 @@ class SequencingRun(GenericProcess):
         self.side = side
         self.state = "Running"
         self.operator = operator
+        self.run_type = run_type
         #self.input_amount = input_amount
         #self.yield_from_library = yield_from_library
         #self.average_bp = average_bp
@@ -47,14 +48,15 @@ class SequencingRun(GenericProcess):
         """
         return os.path.isfile(self.complete_file)
 
-class HighThroughputRun(SequencingRun):
-    """
-    Sequencing run with 8 lanes completed in 11 days.
-    """
-    pass
+#Am considering adding the run_types as separate classes.
+#class HighThroughputRun(SequencingRun):
+#    """
+#    Sequencing run with 8 lanes completed in 11 days.
+#    """
+#    pass
 
-class RapidRun(SequencingRun):
-    """
-    Sequencing run with 2 lanes completed in 27 hours.
-    """
-    pass
+#class RapidRun(SequencingRun):
+#    """
+#    Sequencing run with 2 lanes completed in 27 hours.
+#    """
+#    pass

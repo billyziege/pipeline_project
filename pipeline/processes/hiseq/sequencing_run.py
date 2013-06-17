@@ -4,7 +4,7 @@ import sys
 import re
 import ConfigParser
 from mockdb.initiate_mockdb import initiate_mockdb, save_mockdb
-from processes.parsing import parse_sequencing_run_dir
+from processes.parsing import parse_sequencing_run_dir, get_sequencing_run_base_dir, table_reader
 from demultiplex_stats.extract_stats import extract_barcode_lane_stats, calculate_lane_total, calculate_weighted_percent
 
 
@@ -42,9 +42,29 @@ def fill_run_stats_from_directory_name(config,mockdb,directory,add=False):
         seq_run.state = 'Complete'
     return 1
 
+def determine_run_type(directory):
+    """
+    Looks at the SampleSheet.csv in the base sequencing directory
+    and determines the number of lanes.  If 2, the run type is RapidRun.
+    If 8, the run type is HighThroughputRun.  Otherwise, None
+    is returned.
+    """
+    base_dir = get_sequencing_run_base_dir(directory)
+    samplesheet_file = os.path.join(base_dir,"SampleSheet.csv")
+    if not os.path.isfile(samplesheet_file):
+        return None
+    table = table_reader(samplesheet_file)
+    lane_numbers = set([row['lane'] for row in table])
+    if len(lane_numbers) == 2:
+        return "RapidRun"
+    if len(lane_numbers) == 8:
+        return "HighThrouputRun"
+    return None
+
 if __name__ == "__main__":
-    config = ConfigParser.ConfigParser()
-    config.read('/mnt/iscsi_space/zerbeb/qc_pipeline_project/qc_pipeline/config/qc.cfg')
-    mockdb = initiate_mockdb(config)
-    fill_run_stats_from_directory_name(config,mockdb,sys.argv[1],add=True)
-    save_mockdb(config,mockdb)
+    #config = ConfigParser.ConfigParser()
+    #config.read('/mnt/iscsi_space/zerbeb/qc_pipeline_project/qc_pipeline/config/qc.cfg')
+    #mockdb = initiate_mockdb(config)
+    #fill_run_stats_from_directory_name(config,mockdb,sys.argv[1],add=True)
+    #save_mockdb(config,mockdb)
+    print determine_run_type(sys.argv[1])

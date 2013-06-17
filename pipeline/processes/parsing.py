@@ -5,7 +5,7 @@ from processes.hiseq.scripts import translate_sample_name, list_sample_dirs
 
 #This function reads the sample sheet into appropriate objects
 def parse_sample_sheet(config,mockdb,directory):
-    samplesheet  = samplesheet_reader(os.path.join(directory, 'SampleSheet.csv'))
+    samplesheet  = table_reader(os.path.join(directory, 'SampleSheet.csv'))[0]
     parsed = {}
     sample_key = translate_sample_name(samplesheet['SampleID'])
     parsed['project_name'] = samplesheet['SampleProject']
@@ -41,16 +41,19 @@ def parse_sample_sheet(config,mockdb,directory):
     parsed['recipe'] = samplesheet['Recipe']
     return parsed
 
-#This function reads the two lines of a sample sheet into
-#a single dictionary
-def samplesheet_reader(samplesheet_file):
-    f = open(samplesheet_file, "r")
-    while True:
+def table_reader(samplesheet_file,sep=','):
+    """
+    Reads a table csv file with a header into a list
+    which has a dictionary keyed by row number.
+    """
+    rows = []
+    with open(samplesheet_file, "r") as f:
         keys = f.readline().strip().split(',')
-        values = f.readline().strip().split(',')
-        break
-    dictionary = dict(zip(keys, values))
-    return dictionary
+        for line in f:
+            values = f.readline().strip().split(',')
+            dictionary = dict(zip(keys, values))
+            rows.append(dictionary)
+    return rows
 
 def parse_sequencing_run_dir(directory):
     base_dir = get_sequencing_run_base_dir(directory)
