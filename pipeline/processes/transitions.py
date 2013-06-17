@@ -1,7 +1,7 @@
 import sys
 import re
 from processes.parsing import parse_sample_sheet
-from processes.hiseq.scripts import list_sample_dirs
+from processes.hiseq.scripts import list_sample_dirs, determine_run_type
 from manage_storage.scripts import identify_running_location_with_most_currently_available
 from demultiplex_stats.fill_demultiplex_stats import fill_demultiplex_stats
 
@@ -83,7 +83,8 @@ def things_to_do_if_initializing_pipeline_with_input_directory(config,storage_de
             base_dir = get_sequencing_run_base_dir(source_dir)
             [date,machine_key,run_number,side,flowcell_key] = parse_sequencing_run_dir(base_dir)
             machine = mockdb['HiSeqMachine'].__get__(config,machine_key)
-            seq_run = mockdb['SequencingRun'].__new__(config,flowcell,machine,date,run_number,output_dir=base_dir,side=side)
+            run_type = determine_run_type(base_dir)
+            seq_run = mockdb['SequencingRun'].__new__(config,flowcell,machine,date,run_number,output_dir=base_dir,side=side,run_type=run_type)
             fill_demultiplex_stats(config,mockdb,seq_run.output_dir,flowcell,machine)
         except:
             pass

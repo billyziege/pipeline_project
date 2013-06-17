@@ -54,11 +54,11 @@ def determine_run_type(directory):
     if not os.path.isfile(samplesheet_file):
         return None
     table = table_reader(samplesheet_file)
-    lane_numbers = set([row['lane'] for row in table])
+    lane_numbers = set([row['Lane'] for row in table])
     if len(lane_numbers) == 2:
         return "RapidRun"
     if len(lane_numbers) == 8:
-        return "HighThrouputRun"
+        return "HighThroughputRun"
     return None
 
 if __name__ == "__main__":

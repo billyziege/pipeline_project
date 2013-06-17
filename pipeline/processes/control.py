@@ -3,7 +3,7 @@ import sys
 import re
 from processes.models import GenericProcess
 from mockdb.models import FormattingError
-from processes.hiseq.scripts import list_monitoring_dirs
+from processes.hiseq.scripts import list_monitoring_dirs, determine_run_type
 from processes.transitions import things_to_do_if_zcat_complete, things_to_do_if_bcbio_complete, things_to_do_if_starting_pipeline
 from processes.transitions import things_to_do_if_sequencing_run_is_complete, things_to_do_if_snps_called
 from processes.transitions import things_to_do_if_bcbio_cleaning_complete
@@ -29,7 +29,8 @@ def maintain_sequencing_run_objects(config,mockdb):
             side = "dummy_side"
         machine = mockdb['HiSeqMachine'].__get__(config,key=machine_key)
         flowcell = mockdb['Flowcell'].__get__(config,key=flowcell_key)
-        seq_run=mockdb['SequencingRun'].__new__(config,flowcell=flowcell,machine=machine,date=date,run_number=run_number,output_dir=nd,side=side)
+        run_type = determine_run_type(nd)
+        seq_run=mockdb['SequencingRun'].__new__(config,flowcell=flowcell,machine=machine,date=date,run_number=run_number,output_dir=nd,side=side,run_type=run_type)
     return 1
 
 def initialize_pipeline_for_finished_sequencing_runs(config,storage_devices,mockdb):

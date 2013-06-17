@@ -50,7 +50,7 @@ def table_reader(samplesheet_file,sep=','):
     with open(samplesheet_file, "r") as f:
         keys = f.readline().strip().split(',')
         for line in f:
-            values = f.readline().strip().split(',')
+            values = line.strip().split(',')
             dictionary = dict(zip(keys, values))
             rows.append(dictionary)
     return rows
