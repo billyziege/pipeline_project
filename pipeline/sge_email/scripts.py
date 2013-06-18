@@ -1,29 +1,33 @@
 import smtplib
-from email.mime.text import MIMEText
+from email.MIMEMultipart import MIMEMultipart
+from email.MIMEBase import MIMEBase
+from email.MIMEText import MIMEText
+from email.Utils import COMMASPACE, formatdate
+from email import Encoders
 from sge_email.models import SGEEmailObject
 
-def send_email(subject,message,recipients=None):
+def send_email(subject,message,recipients=None,files=[]):
     sgeemail = SGEEmailObject(subject=subject,message=message,recipients=recipients)
     #fp = open(filename, 'rb')
     # Create a text/plain message
-    msg = MIMEText(sgeemail.caveat + sgeemail.message + sgeemail.salutation)
-    COMMASPACE = ', '
+    msg = MIMEMultipart
     msg['Subject'] = sgeemail.subject
+    msg['Date'] = formatdate(localtime=True)
     msg['From'] = sgeemail.usrname + '@' + sgeemail.domain
     msg['To'] = COMMASPACE.join(sgeemail.recipients)
 
-    print sgeemail.host
+    msg.attach( MIMEText(sgeemail.caveat + sgeemail.message + sgeemail.salutation) )
+
+    for f in files:
+        part = MIMEBase('application', "octet-stream")
+        part.set_payload( open(f,"rb").read() )
+        Encoders.encode_base64(part)
+        part.add_header('Content-Disposition', 'attachment; filename="%s"' % os.path.basename(f))
+        msg.attach(part)
+
     s = smtplib.SMTP_SSL(sgeemail.host,465)
     s.set_debuglevel(1)
-    #s.ehlo()
-    #s.starttls()
-    #s.ehlo()
-    #s.connect(sgeemail.host,465)
-    print sgeemail.usrname
-    print sgeemail.password
     s.login(sgeemail.usrname, sgeemail.password)
-    #s.helo(sgeemail.ip)
-    print sgeemail.usrname + '@' + sgeemail.domain
     s.sendmail(sgeemail.usrname + '@' + sgeemail.domain, sgeemail.recipients, msg.as_string())
     s.quit()
 
