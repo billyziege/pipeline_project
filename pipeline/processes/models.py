@@ -47,6 +47,12 @@ class GenericProcess(NumberedObject):
         self.end_time = time
         self.end_date = date
 
+    def __is_complete__(self):
+        """
+        Returns true if self.state is 'Complete'.
+        """
+        return self.state == 'Complete'
+
 class QsubProcess(GenericProcess):
     """
     Anything process submitted via qsub requires additional information.  This class keeps track of that information
@@ -117,6 +123,14 @@ class QsubProcess(GenericProcess):
         """
         return check_if_single_job_running_on_system(self.job_id)
 
+    def __fill_qsub_file__(self,config):
+        """
+        Simply fills process_name template with appropriate info. 
+        """
+        template_file= os.path.join(config.get('Common_directories','template'),config.get('Template_files',self.process_name))
+        dictionary = {}
+        with open(self.qsub_file,'w') as f:
+            f.write(fill_template(template_file,self.__dict__))
 
 class SampleQsubProcess(QsubProcess):
     """

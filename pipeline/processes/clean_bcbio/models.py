@@ -10,21 +10,5 @@ class CleanBcbio(SampleQsubProcess):
     run directory and moves the result back to storage. 
     """
 
-    def __fill_qsub_file__(self,config):
-        """
-        Simply fills the clean bcbio template with appropriate info. 
-        """
-        template_file= os.path.join(config.get('Common_directories','template'),config.get('Template_files','clean'))
-        dictionary = {}
-        with open(self.qsub_file,'w') as f:
-            f.write(fill_template(template_file,self.__dict__))
-
-    def __is_complete__(self,config):
-        """
-        Checks to see if the clean bcbio complete file has been created.
-        """
-        if os.path.isfile(self.complete_file):
-            pass
-        else:
-            return False
-        return True
+    def __init__(self,config,key=int(-1),sample=None,input_dir=None,base_output_dir=None,output_dir=None,date=strftime("%Y%m%d",localtime()),time=strftime("%H:%M:%S",localtime()),process_name='clean',complete_file=None,**kwargs):
+        SampleQsubProcess.__init__(self,config,key=key,sample=sample,input_dir=input_dir,output_dir=output_dir,process_name=process_name,complete_file=complete_file,**kwargs)
