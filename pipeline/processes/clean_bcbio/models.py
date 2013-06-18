@@ -1,5 +1,6 @@
 import os
 import re
+from time import strftime, localtime
 from physical_objects.hiseq.models import Sample
 from processes.models import SampleQsubProcess
 from template.scripts import fill_template

@@ -6,6 +6,7 @@ import re
 from time import strftime, localtime
 from mockdb.models import NumberedObject
 from physical_objects.hiseq.models import Flowcell
+from processes.models import GenericProcess, QsubProcess
 from processes.hiseq.models import SequencingRun
 from sge_queries.nodes import grab_good_node
 from sge_queries.jobs import check_if_single_job_running_on_system
@@ -135,7 +136,7 @@ class FlowcellStatisticReport(QsubProcess):
         else:
             self.output_dir = output_dir
         if complete_file is None:
-            self.complete_file = os.path.join(self.output_dir,"report_" + str(number) + ".complete"
+            self.complete_file = os.path.join(self.output_dir,"report_" + str(number) + ".complete")
         else:
             self.complete_file = complete_file
         QsubProcess.__init__(self,config,key=key,input_dir=input_dir,base_output_dir=base_output_dir,output_dir=self.output_dir,date=date,time=time,process_name=process_name,complete_file=self.complete_file,**kwargs)

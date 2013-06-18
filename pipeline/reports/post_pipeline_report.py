@@ -102,7 +102,7 @@ if __name__ == "__main__":
     parser.add_argument('sample_list_file', type=str, help='A file with a list of samples (one per line)')
     args = parser.parse_args()
     config = ConfigParser.ConfigParser()
-    config.read('/mnt/iscsi_space/zerbeb/qc_pipeline_project/qc_pipeline/config/qc.cfg')
+    config.read('/mnt/iscsi_space/zerbeb/pipeline_project/pipeline/config/qc.cfg')
     mockdb = initiate_mockdb(config)
     with open(args.sample_list_file,"r") as f:
         samples = [line.strip() for line in f]
