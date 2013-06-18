@@ -1,3 +1,5 @@
+import sys
+import os
 import smtplib
 from email.MIMEMultipart import MIMEMultipart
 from email.MIMEBase import MIMEBase
@@ -10,7 +12,7 @@ def send_email(subject,message,recipients=None,files=[]):
     sgeemail = SGEEmailObject(subject=subject,message=message,recipients=recipients)
     #fp = open(filename, 'rb')
     # Create a text/plain message
-    msg = MIMEMultipart
+    msg = MIMEMultipart()
     msg['Subject'] = sgeemail.subject
     msg['Date'] = formatdate(localtime=True)
     msg['From'] = sgeemail.usrname + '@' + sgeemail.domain
@@ -32,4 +34,7 @@ def send_email(subject,message,recipients=None,files=[]):
     s.quit()
 
 if __name__ == '__main__':
-    send_email("Test","Just a test.\n")
+    files = []
+    if len(sys.argv) > 1:
+        files = sys.argv[1].split(',')
+    send_email("Test","Just a test.\n",recipients='zerbeb@humgen.ucsf.edu',files=files)

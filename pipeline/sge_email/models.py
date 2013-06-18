@@ -4,7 +4,7 @@ class SGEEmailObject:
         self.sender = 'zerbeb@humgen.ucsf.edu'
         self.sender_name = 'Brandon Zerbe'
         if recipients is None:
-            self.recipients = ['zerbeb@humgen.ucsf.edu','tanglf@humgen.ucsf.edu','KvaleM@humgen.ucsf.edu']
+            self.recipients = ['zerbeb@humgen.ucsf.edu']#,'tanglf@humgen.ucsf.edu','KvaleM@humgen.ucsf.edu']
         else:
             self.recipients = recipients.split(',')
         self.password = 'P@ssword'
