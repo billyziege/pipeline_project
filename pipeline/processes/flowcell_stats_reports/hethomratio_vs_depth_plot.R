@@ -6,10 +6,10 @@
 .libPaths( c( .libPaths(), "/mnt/iscsi_speed/devel/lib64/R/library") )
 args <- commandArgs(TRUE)
 data <- read.table(file=args[1],sep=",",header=TRUE)
-current_samples <- read.table(file=args[2],header=TRUE)
+current_samples <- read.table(file=args[2],header=FALSE)
 library(ggplot2)
 data$Run = 'Previous'
-for (sample in current_samples$Sample_ID){
+for (sample in current_samples$V1){
     data$Run[data$Sample_ID == sample] = 'Current'
 }
 a <- ggplot(data, aes(x = Mean_target_coverage, y = Heterozygous.Homozygous, color = Run))
@@ -28,6 +28,6 @@ a <- a + theme(axis.text.y = element_text(size=16))
 a <- a + xlab('Mean read depth')
 a <- a + ylab('Het/Hom')
 
-png(paste(args[3], "hethomratio_vs_depth.png", sep = "/"))
+png(args[3])
 plot(a)
 dev.off()

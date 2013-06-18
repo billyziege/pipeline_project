@@ -6,10 +6,10 @@
 .libPaths( c( .libPaths(), "/mnt/iscsi_speed/devel/lib64/R/library") )
 args <- commandArgs(TRUE)
 data <- read.table(file=args[1],sep=",",header=TRUE)
-current_samples <- read.table(file=args[2],header=TRUE)
+current_samples <- read.table(file=args[2],header=FALSE)
 library(ggplot2)
 data$Run = 'Previous'
-for (sample in current_samples$Sample_ID){
+for (sample in current_samples$V1){
     data$Run[data$Sample_ID == sample] = 'Current'
 }
 a <- ggplot(data, aes(x = Mean_target_coverage, y = Self_concordance, color = Run))
@@ -30,6 +30,6 @@ a <- a + geom_text(data=NULL, x = 50, y = 96, label = '97', color = 'red')
 a <- a + xlab('Mean read depth')
 a <- a + ylab('Self concordance')
 
-png(paste(args[3], "concordance_vs_depth.png", sep = "/"))
+png(args[3])
 plot(a)
 dev.off()
