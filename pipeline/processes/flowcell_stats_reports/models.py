@@ -11,6 +11,7 @@ from processes.hiseq.models import SequencingRun
 from sge_queries.nodes import grab_good_node
 from sge_queries.jobs import check_if_single_job_running_on_system
 from processes.flowcell_stats_reports.scripts import write_list_file
+from sge_email.scripts import send_email
 
 class FlowcellStatisticsReports(GenericProcess):
     """
@@ -39,11 +40,9 @@ class FlowcellStatisticsReports(GenericProcess):
         self.sequencing_run_key = seq_run.key
         self.sequencing_run_type = seq_run.run_type
         self.pipelines = None
-        self.flowcell_report_1_key = None
-        self.flowcell_report_4_key = None
-        self.flowcell_report_16_key = None
-        self.flowcell_report_32_key = None
-        self.flowcell_report_64_key = None
+        numbers = config.get('Flowcell_reports','numbers').split(',')
+        for number in numbers:
+            setattr(self,'flowcell_report_' + str(number) + '_key',None)
         self.state = 'Running'
 
     def __add_pipeline__(self,pipeline):
@@ -118,6 +117,40 @@ class FlowcellStatisticsReports(GenericProcess):
                 return False
         return False
 
+    def _send_reports__(self,config,mockdb):
+        numbers = config.get('Flowcell_reports','numbers').split(',')
+        for number in numbers:
+            flowcell_report_key = getattr(self,'flowcell_report_' + str(number) + '_key')
+            if key is None:
+                continue
+            report = mockdb['FlowcellStatisticReport'].objects[flowcell_report_key]
+            if report.report_sent is True:
+                continue
+            if not report.__is_complete__():
+                continue
+            files = []
+            files.append(report.full_report)
+            files.append(report.current_report)
+            files.append(report.concordance_png)
+            files.append(report.dbsnp_png)
+            files.append(report.greater_than_10x_png)
+            files.append(report.zero_coverage_png)
+            files.append(report.hethomratio_png)
+            try:
+                if self.sequencing_run_type == 'RapidRun' and str(number) == '16'
+                    recipients = config.get('Flowcell_reports','last_recipients').split(',')
+                    send_email(report.__generate_flowcell_report_text__(config,mockdb),files=files,last_report==True)
+                    report.report_sent = True
+                if self.sequencing_run_type == 'HighThroughputRun' and str(number) == '64'
+                    recipients = config.get('Flowcell_reports','last_recipients').split(',')
+                    send_email(report.__generate_flowcell_report_text__(config,mockdb),files=files,last_report==True)
+                    report.report_sent = True
+            except:
+                recipients = config.get('Flowcell_reports','general_recipients').split(',')
+            send_email(report.__generate_flowcell_report_text__(config,mockdb),files=files)
+            report.report_sent = True
+        return 1
+
 
 
 class FlowcellStatisticReport(QsubProcess):
@@ -160,6 +193,8 @@ class FlowcellStatisticReport(QsubProcess):
         self.greater_than_10x_png = os.path.join(self.output_dir,'greater_than_10x_vs_depth.png')
         self.zero_coverage_png = os.path.join(self.output_dir,'zero_coverage_vs_depth.png')
         self.hethomratio_png = os.path.join(self.output_dir,'hethomratio_vs_depth.png')
+        #Flag to keep track if report has been sent
+        self.report_sent = False
 
     def __fill_qsub_file__(self,config):
         """
@@ -178,4 +213,12 @@ class FlowcellStatisticReport(QsubProcess):
         dictionary.update({'hethom_script':config.get('Flowcell_reports','hethom_script')})
         with open(self.qsub_file,'w') as f:
             f.write(fill_template(template_file,dictionary))
+    
+    def __generate_flowcell_report_text__(self,config,mockdb)
+####Should also add a function that can pull out samples with anomylous statistics################################################################################################# 
+        template_subject = os.path.join(config.get('Common_directories','template'),config.get('Bcbio_email_templates','general_subject'))
+        template_body = os.path.join(config.get('Common_directories','template'),config.get('Bcbio_email_templates','general_body'))
+        subject = fill_template(template_subject,self.__dict__)
+        body = fill_template(template_body, self.__dict__)
+        return subject, body
 

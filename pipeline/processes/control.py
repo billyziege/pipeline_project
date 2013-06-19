@@ -61,6 +61,24 @@ def continue_backup_processes(config,storage_devices,mockdb):
         pass
     return 1
 
+def handle_automated_reports(config,mockdb):
+    """
+    Looks for report objects, then finds any that are not yet complete, i.e.
+    Running.  Then generates any necessary reports and sends them via e-mail.
+    """
+    for object_key in mockdb.keys():
+        if not re.search("Reports$",object_key):
+            continue
+        state_dict = mockdb[object_key].__attribute_value_to_object_dict__('state')
+        try:
+            for object in state_dict['Running']:
+                things_to_do_for_reports_object(cofig,mockdb)
+                if object.__is_complete__(config):
+                    object.__finish__()
+        except KeyError:
+            pass
+    return 1
+
 def run_pipelines_with_enough_space(config,storage_devices,mockdb,pipeline_class_name):
     """
     Identifies pipelines that are ready to run.  If they are ready, they are passed to

@@ -57,10 +57,16 @@ def things_to_do_if_sequencing_run_is_complete(config,storage_devices,mockdb,seq
         running_location = identify_running_location_with_most_currently_available(config,storage_devices)
         parsed = parse_sample_sheet(config,mockdb,sample_dir)
         if re.search('MSBP',parsed['recipe']):
-            mockdb['QualityControlPipeline'].__new__(config,input_dir=sample_dir,base_output_dir=base_output_dir,sequencing=seq_run,running_location=running_location,**parsed)
+            pipeline = mockdb['QualityControlPipeline'].__new__(config,input_dir=sample_dir,base_output_dir=base_output_dir,sequencing=seq_run,running_location=running_location,**parsed)
             backup = mockdb['Backup'].__new__(config,sample=parsed['sample'],input_dir=sample_dir)
             backup.__fill_qsub_file__(config)
             backup.__launch__(config,storage_device=storage_devices[backup.location])
+            flowcell_fc_report_dict = mockdb['FlowcellStatisticsReports'].__attribute_value_to_object_dict__('flowcell_key')
+            try:
+                report = flowcell_fc_report_dict[flowcell.key]
+            except KeyError:
+                report = mockdb['FlowcellStatisticsReports'].__new__(config,flowcell=flowcell,seq_run=seq_run,**kwargs):
+            report.__add_pipeline__(pipeline)
     return 1
 
 def things_to_do_if_initializing_pipeline_with_input_directory(config,storage_devices,mockdb,source_dir,base_output_dir=None):
