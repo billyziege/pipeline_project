@@ -12,6 +12,7 @@ from sge_queries.nodes import grab_good_node
 from sge_queries.jobs import check_if_single_job_running_on_system
 from processes.flowcell_stats_reports.scripts import write_list_file
 from sge_email.scripts import send_email
+from reports.post_pipeline_report import produce_outlier_table
 
 class FlowcellStatisticsReports(GenericProcess):
     """
@@ -128,26 +129,25 @@ class FlowcellStatisticsReports(GenericProcess):
                 continue
             if not report.__is_complete__():
                 continue
+            if self.sequencing_run_type == 'RapidRun' and str(number) == '16':
+                recipients = config.get('Flowcell_reports','last_recipients').split(',')
+                subject, body = report.__generate_flowcell_report_text__(config,mockdb,report_type="last_report")
+            elif self.sequencing_run_type == 'HighThroughputRun' and str(number) == '64':
+                recipients = config.get('Flowcell_reports','last_recipients').split(',')
+                subject, body = report.__generate_flowcell_report_text__(config,mockdb,report_type="last_report")
+            else:
+                recipients = config.get('Flowcell_reports','general_recipients').split(',')
+                subject, body = report.__generate_flowcell_report_text__(config,mockdb,report_type="subset_report")
             files = []
             files.append(report.full_report)
             files.append(report.current_report)
+            files.append(report.outlier_table)
             files.append(report.concordance_png)
             files.append(report.dbsnp_png)
             files.append(report.greater_than_10x_png)
             files.append(report.zero_coverage_png)
             files.append(report.hethomratio_png)
-            try:
-                if self.sequencing_run_type == 'RapidRun' and str(number) == '16'
-                    recipients = config.get('Flowcell_reports','last_recipients').split(',')
-                    send_email(report.__generate_flowcell_report_text__(config,mockdb),files=files,last_report==True)
-                    report.report_sent = True
-                if self.sequencing_run_type == 'HighThroughputRun' and str(number) == '64'
-                    recipients = config.get('Flowcell_reports','last_recipients').split(',')
-                    send_email(report.__generate_flowcell_report_text__(config,mockdb),files=files,last_report==True)
-                    report.report_sent = True
-            except:
-                recipients = config.get('Flowcell_reports','general_recipients').split(',')
-            send_email(report.__generate_flowcell_report_text__(config,mockdb),files=files)
+            send_email(subject,body,recipients=recipients,files=files)
             report.report_sent = True
         return 1
 
@@ -188,6 +188,7 @@ class FlowcellStatisticReport(QsubProcess):
         #Output files
         self.full_report = os.path.join(self.output_dir,'all_samples_report.csv')
         self.current_report = os.path.join(self.output_dir,'current_samples_report.csv')
+        self.outlier_table = os.path.join(self.output_dir,'current_samples_outlier_table.txt')
         self.concordance_png = os.path.join(self.output_dir,'concordance_vs_depth.png')
         self.dbsnp_png = os.path.join(self.output_dir,'dbsnp_vs_depth.png')
         self.greater_than_10x_png = os.path.join(self.output_dir,'greater_than_10x_vs_depth.png')
@@ -214,11 +215,21 @@ class FlowcellStatisticReport(QsubProcess):
         with open(self.qsub_file,'w') as f:
             f.write(fill_template(template_file,dictionary))
     
-    def __generate_flowcell_report_text__(self,config,mockdb)
-####Should also add a function that can pull out samples with anomylous statistics################################################################################################# 
-        template_subject = os.path.join(config.get('Common_directories','template'),config.get('Bcbio_email_templates','general_subject'))
-        template_body = os.path.join(config.get('Common_directories','template'),config.get('Bcbio_email_templates','general_body'))
-        subject = fill_template(template_subject,self.__dict__)
-        body = fill_template(template_body, self.__dict__)
+    def __generate_flowcell_report_text__(self,config,mockdb,report_type="subset_report"):
+        """
+        Creates the outlier table, saves it to a file, and fills the
+        subject and body of the report.
+        """
+        template_subject = os.path.join(config.get('Common_directories','template'),config.get('Flowcell_report_email_templates',report_type + '_subject'))
+        template_body = os.path.join(config.get('Common_directories','template'),config.get('Flowcell_report_email_templates',report_type + '_body'))
+        dictionary = {}
+        for k,v in self.__dict__.iteritems():
+            dictionary.update({k:str(v)})
+        outlier_table = produce_outlier_table(config,mockdb,self.current_samples_report)
+        with open(self.outlier_table,'w') as f:
+            f.write(outlier_table)
+        dictionary.update({'outlier_table': outlier_table})
+        subject = fill_template(template_subject,dictionary)
+        body = fill_template(template_body,dictionary)
         return subject, body
 

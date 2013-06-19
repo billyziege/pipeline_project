@@ -41,13 +41,13 @@ def parse_sample_sheet(config,mockdb,directory):
     parsed['recipe'] = samplesheet['Recipe']
     return parsed
 
-def table_reader(samplesheet_file,sep=','):
+def table_reader(fname,sep=','):
     """
     Reads a table csv file with a header into a list
     which has a dictionary keyed by row number.
     """
     rows = []
-    with open(samplesheet_file, "r") as f:
+    with open(fname, "r") as f:
         keys = f.readline().strip().split(',')
         for line in f:
             values = line.strip().split(',')

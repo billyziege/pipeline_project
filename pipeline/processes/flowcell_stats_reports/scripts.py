@@ -1,5 +1,5 @@
 
-def write_list_file(input_list,output_file,original_list_file=None,sort=True)
+def write_list_file(input_list,output_file,original_list_file=None,sort=True):
     output_list = []
     if not original_list_file is None:
         with open(original_list_file,'r') as f:

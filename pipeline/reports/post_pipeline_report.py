@@ -3,7 +3,10 @@ import sys
 import os
 import re
 import argparse
+from texttable import Texttable
 from mockdb.initiate_mockdb import initiate_mockdb, save_mockdb
+from config.scripts import grab_thresholds_from_config
+from processes.parsing import table_reader
 
 def post_pipeline_report(mockdb,sample_list):
     sep = ','
@@ -95,16 +98,171 @@ def prepare_pipeline_report_line(mockdb,sample_key,sep=','):
             line2.append(element)
     return sep.join([str(element) for element in line2])
 
+def pull_outlier_samples(table,statistic,low_threshold=None,high_threshold=None):
+    """
+    Goes through the output of post_pipeline_report, which has been
+    loaded into a table (rows of dictionary), and looks at the specified column.
+    If the column value falls out of the provided range, the sample_ID and
+    column's value are recorded in a dictionary, which is returned.  
+    At least a lower or an upper bound needs to be provided,
+    otherwise this function returns an empty dictionary.
+    """
+    outliers = {}
+    for dictionary in table:
+        try:
+            sample_id = dictionary['Sample_ID']
+            value = dictionary[statistic].strip('x')
+        except KeyError:
+            continue
+        if not low_threshold is None:
+            if float(value) < float(low_threshold):
+                outliers.update({sample_id: value})
+                continue
+        if not high_threshold is None:
+            if float(value) > float(high_threshold):
+                outliers.update({sample_id: value})
+                continue
+    return outliers
+
+def pull_five_best_concordance_matches(mockdb,sample_key):
+    """
+    Places the five top ranked samples from a concordance search
+    and their concordance into a tuple.
+    """
+    best_matches = []
+    sample_qcpipeline_dict = mockdb['QualityControlPipeline'].__attribute_value_to_object_dict__('sample_key')
+    pipeline = sample_qcpipeline_dict[sample_key][0]
+    snp_stats = mockdb['SnpStats'].objects[pipeline.snp_stats_key]
+    if snp_stats.search_key is None:
+        return best_matches
+    search = mockdb['ConcordanceSearch'].objects[snp_stats.search_key]
+    best_matches.append([search.first_match,search.first_concordance])
+    best_matches.append([search.second_match,search.second_concordance])
+    best_matches.append([search.third_match,search.third_concordance])
+    best_matches.append([search.fourth_match,search.fourth_concordance])
+    best_matches.append([search.fifth_match,search.fifth_concordance])
+    return best_matches
+
+def produce_outlier_table(config,mockdb,fname,na_mark='-'):
+    """
+    Produces a table as a string of samples from the post_pipeline_report
+    output file (fname) that have outlier statistics
+    on a subset of the statistics that are included in this
+    function and which have thresholds in the config file.
+    Only the outlier statistics are reported.  If other samples
+    have outlier's in a specific statistic but the given sample doesn't,
+    this will appear as a na_mark (default '-') in the table.  If no
+    samples are found to be outliers, None is returned.
+    """
+    in_table = table_reader(fname)
+    #Identify the outliers
+    statistic = 'Mean_target_coverage'
+    low, high = grab_thresholds_from_config(config,'Flowcell_reports','mean_depth_thresholds')
+    mean_depth_dict = pull_outlier_samples(in_table,statistic,low_threshold=low,high_threshold=high)
+    statistic = 'Heterozygous/Homozygous'
+    low, high = grab_thresholds_from_config(config,'Flowcell_reports','hethom_thresholds')
+    hethom_dict = pull_outlier_samples(in_table,statistic,low_threshold=low,high_threshold=high)
+    statistic = 'Self_concordance'
+    low, high = grab_thresholds_from_config(config,'Flowcell_reports','concordance_thresholds')
+    concord_dict = pull_outlier_samples(in_table,statistic,low_threshold=low,high_threshold=high)
+    statistic = 'In_dbSNP'
+    low, high = grab_thresholds_from_config(config,'Flowcell_reports','dbsnp_thresholds')
+    dbsnp_dict = pull_outlier_samples(in_table,statistic,low_threshold=low,high_threshold=high)
+    
+    #Set up the ouput table.
+    out_table = Texttable()
+    out_table.set_deco(Texttable.HEADER)
+    halign = ['l']
+    valign = ['m']
+    dtype = ['t']
+    width = [20]
+    header = ['Sample ID']
+    all_sample_keys = set([])
+    if len(mean_depth_dict.keys()) > 0:
+        halign.append('c')
+        valign.append('m')
+        dtype.append('i')
+        width.append(10)
+        header.append('Mean depth')
+        all_sample_keys.update(set(mean_depth_dict.keys()))
+    if len(hethom_dict.keys()) > 0:
+        halign.append('c')
+        valign.append('m')
+        dtype.append('f')
+        header.append('Het/Hom')
+        width.append(9)
+        all_sample_keys.update(set(hethom_dict.keys()))
+    if len(concord_dict.keys()) > 0:
+        halign.append('c')
+        valign.append('m')
+        dtype.append('f')
+        width.append(13)
+        header.append('Concordance')
+        all_sample_keys.update(set(concord_dict.keys()))
+        halign.append('c')
+        valign.append('m')
+        dtype.append('t')
+        width.append(30)
+        header.append('Best matches (Concordance)')
+    if len(dbsnp_dict.keys()) > 0:
+        halign.append('c')
+        valign.append('m')
+        dtype.append('f')
+        width.append(10)
+        header.append('Percentage\nin dbSNP')
+        all_sample_keys.update(set(dbsnp_dict.keys()))
+
+    if len(all_sample_keys) < 1:
+        return None
+    out_table.set_cols_align(halign)
+    out_table.set_cols_valign(valign) 
+    out_table.set_cols_dtype(dtype)
+    out_table.set_cols_width(width)
+    out_table.header(header)
+    for sample_key in all_sample_keys:
+        row = [sample_key]
+        if 'Mean depth' in header:
+            try:
+                row.append(mean_depth_dict[sample_key])
+            except KeyError:
+                row.append(na_mark)
+        if 'Het/Hom' in header:
+            try:
+                row.append(hethom_dict[sample_key])
+            except KeyError:
+                row.append(na_mark)
+        if 'Concordance' in header:
+            try:
+                row.append(concord_dict[sample_key])
+                best_matches = pull_five_best_concordance_matches(mockdb,sample_key)
+                formatted_matches = []
+                for match in best_matches:
+                    formatted_matches.append(str(match[0]) + " (" + str(match[1]) + ")")
+                row.append("\n".join(formatted_matches))
+            except KeyError:
+                row.append(na_mark)
+                row.append(na_mark)
+        if 'Percentage\nin dbSNP' in header:
+            try:
+                row.append(dbsnp_dict[sample_key])
+            except KeyError:
+                row.append(na_mark)
+        out_table.add_row(row)
+    return out_table.draw()
 
 if __name__ == "__main__":
     #Handle arguments
     parser = argparse.ArgumentParser(description='Reports the statistics for the provided sample list')
-    parser.add_argument('sample_list_file', type=str, help='A file with a list of samples (one per line)')
+    parser.add_argument('input', type=str, help='A file with a list of samples (one per line) for the main function.  A report file for the test_outlier_table function')
+    parser.add_argument('--test_outlier_table', dest='test_outlier_table', action='store_true', default=False, help='Coops the script to test the outlier table function.')
     args = parser.parse_args()
     config = ConfigParser.ConfigParser()
     config.read('/mnt/iscsi_space/zerbeb/pipeline_project/pipeline/config/qc.cfg')
     mockdb = initiate_mockdb(config)
-    with open(args.sample_list_file,"r") as f:
-        samples = [line.strip() for line in f]
-    post_pipeline_report(mockdb,samples)
-    #save_mockdb(config,mockdb)
+    if args.test_outlier_table is True:
+        print produce_outlier_table(config,mockdb,args.input)
+    else:
+        with open(args.input,"r") as f:
+            samples = [line.strip() for line in f]
+        post_pipeline_report(mockdb,samples)
+    
