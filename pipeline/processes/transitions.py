@@ -103,3 +103,7 @@ def things_to_do_if_snps_called(config,mockdb,pipeline,bcbio):
     pipeline.snp_stats_key = snp_stats.key
     snp_stats.__launch__(config)
     return 1
+
+def things_to_do_for_reports_object(config,mockdb,object):
+    object.__generate_reports__(config,mockdb)
+    object.__send_reports__(config,mockdb)

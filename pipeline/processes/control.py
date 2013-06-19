@@ -6,7 +6,7 @@ from mockdb.models import FormattingError
 from processes.hiseq.scripts import list_monitoring_dirs, determine_run_type
 from processes.transitions import things_to_do_if_zcat_complete, things_to_do_if_bcbio_complete, things_to_do_if_starting_pipeline
 from processes.transitions import things_to_do_if_sequencing_run_is_complete, things_to_do_if_snps_called
-from processes.transitions import things_to_do_if_bcbio_cleaning_complete
+from processes.transitions import things_to_do_if_bcbio_cleaning_complete, things_to_do_for_report_objects
 from processes.parsing import parse_sequencing_run_dir
 
 def maintain_sequencing_run_objects(config,mockdb):
@@ -72,7 +72,7 @@ def handle_automated_reports(config,mockdb):
         state_dict = mockdb[object_key].__attribute_value_to_object_dict__('state')
         try:
             for object in state_dict['Running']:
-                things_to_do_for_reports_object(cofig,mockdb)
+                things_to_do_for_reports_object(cofig,mockdb,object)
                 if object.__is_complete__(config):
                     object.__finish__()
         except KeyError:

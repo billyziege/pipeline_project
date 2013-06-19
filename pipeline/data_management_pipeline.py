@@ -47,4 +47,7 @@ add_running_storage(config,storage_devices,mockdb)
 run_pipelines_with_enough_space(config,storage_devices,mockdb,'QualityControlPipeline')
 run_pipelines_with_enough_space(config,storage_devices,mockdb,'StandardPipeline')
 
+#Generate and send any outstanding reports.
+handle_automated_reports(config,mockdb)
+
 save_mockdb(config,mockdb)

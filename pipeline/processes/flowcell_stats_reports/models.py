@@ -113,12 +113,18 @@ class FlowcellStatisticsReports(GenericProcess):
             if len(sample_keys) >= number:
                 if getattr(self,'flowcell_report_' + str(number) + '_key') is None:
                     report = mockdb['FlowcellStatisticReport'].__new__(config,sample_keys=sample_keys,number=number,base_output_dir=self.base_output_dir)
+                    report.__launch__(config)
                     setattr(self,'flowcell_report_' + str(number) + '_key',report.key)
                     return True
                 return False
         return False
 
-    def _send_reports__(self,config,mockdb):
+    def __send_reports__(self,config,mockdb):
+        """
+        For reports that have generated but not been sent,
+        this script attaches the appropriate plots and tables
+        and sends the email.
+        """
         numbers = config.get('Flowcell_reports','numbers').split(',')
         for number in numbers:
             flowcell_report_key = getattr(self,'flowcell_report_' + str(number) + '_key')
@@ -129,19 +135,23 @@ class FlowcellStatisticsReports(GenericProcess):
                 continue
             if not report.__is_complete__():
                 continue
+            report.__finish()
             if self.sequencing_run_type == 'RapidRun' and str(number) == '16':
                 recipients = config.get('Flowcell_reports','last_recipients').split(',')
                 subject, body = report.__generate_flowcell_report_text__(config,mockdb,report_type="last_report")
+                self.__finish__()
             elif self.sequencing_run_type == 'HighThroughputRun' and str(number) == '64':
                 recipients = config.get('Flowcell_reports','last_recipients').split(',')
                 subject, body = report.__generate_flowcell_report_text__(config,mockdb,report_type="last_report")
+                self.__finish__()
             else:
-                recipients = config.get('Flowcell_reports','general_recipients').split(',')
+                recipients = config.get('Flowcell_reports','subset_recipients').split(',')
                 subject, body = report.__generate_flowcell_report_text__(config,mockdb,report_type="subset_report")
             files = []
             files.append(report.full_report)
             files.append(report.current_report)
-            files.append(report.outlier_table)
+            if not report.outlier is None:
+                files.append(report.outlier_table)
             files.append(report.concordance_png)
             files.append(report.dbsnp_png)
             files.append(report.greater_than_10x_png)
@@ -220,15 +230,22 @@ class FlowcellStatisticReport(QsubProcess):
         Creates the outlier table, saves it to a file, and fills the
         subject and body of the report.
         """
-        template_subject = os.path.join(config.get('Common_directories','template'),config.get('Flowcell_report_email_templates',report_type + '_subject'))
-        template_body = os.path.join(config.get('Common_directories','template'),config.get('Flowcell_report_email_templates',report_type + '_body'))
         dictionary = {}
         for k,v in self.__dict__.iteritems():
             dictionary.update({k:str(v)})
         outlier_table = produce_outlier_table(config,mockdb,self.current_samples_report)
-        with open(self.outlier_table,'w') as f:
-            f.write(outlier_table)
-        dictionary.update({'outlier_table': outlier_table})
+        if outlier_table is None:
+            template_subject = os.path.join(config.get('Common_directories','template'),config.get('Flowcell_report_email_templates',report_type + '_subject'))
+            template_body = os.path.join(config.get('Common_directories','template'),config.get('Flowcell_report_email_templates',report_type + '_no_outliers_body')
+        else:
+            with open(self.outlier_table,'w') as f:
+                f.write(outlier_table)
+            dictionary.update({'outlier_table': outlier_table})
+            template_subject = os.path.join(config.get('Common_directories','template'),config.get('Flowcell_report_email_templates',report_type + '_subject'))
+            template_body = os.path.join(config.get('Common_directories','template'),config.get('Flowcell_report_email_templates',report_type + '_body'))
+        sample_keys = self.sample_keys.split(";")
+        number_samples = len(sample_keys)
+        dictionary.update({'number_samples': str(number_samples)})
         subject = fill_template(template_subject,dictionary)
         body = fill_template(template_body,dictionary)
         return subject, body
