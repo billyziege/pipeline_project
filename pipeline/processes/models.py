@@ -145,7 +145,10 @@ class SampleQsubProcess(QsubProcess):
         if output_dir is None:
             if base_output_dir == None:
                 base_output_dir = config.get('Common_directories','bcbio_upload')
-            self.output_dir = os.path.join(base_output_dir,self.sample_key + '-' + str(date))
+            project = re.sub('_','-',sample.project)
+            if re.search("[0-9]",project[0:1]):
+                project = "Project-" + project
+            self.output_dir = os.path.join(base_output_dir,project + "_" + self.sample_key + '_' + str(date))
         else:
             self.output_dir = output_dir
         QsubProcess.__init__(self,config,key=key,input_dir=input_dir,base_output_dir=base_output_dir,output_dir=self.output_dir,date=date,time=time,process_name=process_name,complete_file=complete_file,**kwargs)
@@ -177,7 +180,10 @@ class QualityControlPipeline(GenericProcess):
         self.date = date
         if base_output_dir == None:
             base_output_dir = config.get('Common_directories','bcbio_upload')
-        self.output_dir = os.path.join(base_output_dir, sample.key + "_" + date)
+        project = re.sub('_','-',sample.project)
+        if re.search("[0-9]",project[0:1]):
+            project = "Project-" + project
+        self.output_dir = os.path.join(base_output_dir,project + "_" + self.sample_key + '_' + str(date))
         if not os.path.exists(self.output_dir) and not re.search('dummy',sample.key):
             os.makedirs(self.output_dir)
         if sequencing_run != None:
