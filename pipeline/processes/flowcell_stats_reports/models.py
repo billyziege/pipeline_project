@@ -236,7 +236,7 @@ class FlowcellStatisticReport(QsubProcess):
         outlier_table = produce_outlier_table(config,mockdb,self.current_samples_report)
         if outlier_table is None:
             template_subject = os.path.join(config.get('Common_directories','template'),config.get('Flowcell_report_email_templates',report_type + '_subject'))
-            template_body = os.path.join(config.get('Common_directories','template'),config.get('Flowcell_report_email_templates',report_type + '_no_outliers_body')
+            template_body = os.path.join(config.get('Common_directories','template'),config.get('Flowcell_report_email_templates',report_type + '_no_outliers_body'))
         else:
             with open(self.outlier_table,'w') as f:
                 f.write(outlier_table)

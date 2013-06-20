@@ -13,7 +13,7 @@ def parse_sample_sheet(config,mockdb,directory):
     flowcell_key = samplesheet['FCID']
     parsed['flowcell'] = mockdb['Flowcell'].__get__(config,key=flowcell_key)
     lane_key = flowcell_key + '_lane_' + samplesheet['Lane']
-    parsed['lane'] = mockdb['Lane'].__get__(config,key=lane_key,flowcell=parsed['flowcell'])
+    parsed['lane'] = mockdb['Lane'].__get__(config,key=lane_key,flowcell=parsed['flowcell'],number=samplesheet['Lane'])
     barcode_key = lane_key + '_' + samplesheet['Index']
     parsed['barcode'] = mockdb['Barcode'].__get__(config,key=barcode_key,sample=parsed['sample'],lane=parsed['lane'],project=parsed['project_name'],index=samplesheet['Index'])
     description = sample_key + "_" + samplesheet['Description']

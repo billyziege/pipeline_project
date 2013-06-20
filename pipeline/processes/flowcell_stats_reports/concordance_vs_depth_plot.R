@@ -8,11 +8,11 @@ args <- commandArgs(TRUE)
 data <- read.table(file=args[1],sep=",",header=TRUE)
 current_samples <- read.table(file=args[2],header=FALSE)
 library(ggplot2)
-data$Run = 'Previous'
+data$Lane = 'Previous runs'
 for (sample in current_samples$V1){
-    data$Run[data$Sample_ID == sample] = 'Current'
+    data$Lane[data$Sample_ID == sample] = paste('Lane ',data$Lane_number[data$Sample_ID == sample])
 }
-a <- ggplot(data, aes(x = Mean_target_coverage, y = Self_concordance, color = Run))
+a <- ggplot(data, aes(x = Mean_target_coverage, y = Self_concordance, color = Lane))
 a <- a + geom_point(size=3)
 a <- a + theme_bw()
 a <- a + theme(axis.line = element_line(colour = 'black'))

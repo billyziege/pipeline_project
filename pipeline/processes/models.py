@@ -6,7 +6,7 @@ import re
 from time import strftime, localtime
 from mockdb.models import NumberedObject
 from physical_objects.models import Sample
-from physical_objects.hiseq.models import Flowcell
+from physical_objects.hiseq.models import Flowcell, Barcode
 from sge_queries.nodes import grab_good_node
 from sge_queries.jobs import check_if_single_job_running_on_system
 
@@ -179,10 +179,13 @@ class QualityControlPipeline(GenericProcess):
         self.date = date
         if base_output_dir == None:
             base_output_dir = config.get('Common_directories','bcbio_upload')
-        project = re.sub('_','-',barcode.project)
-        if re.search("[0-9]",project[0:1]):
-            project = "Project-" + project
-        self.output_dir = os.path.join(base_output_dir,project + "_" + self.sample_key + '_' + str(date))
+        if barcode.project is None:
+            self.output_dir = os.path.join(base_output_dir,sample.key + '_' + str(date))
+        else:
+            project = re.sub('_','-',barcode.project)
+            if re.search("[0-9]",project[0:1]):
+                project = "Project-" + project
+            self.output_dir = os.path.join(base_output_dir,project + "_" + sample.key + '_' + str(date))
         if not os.path.exists(self.output_dir) and not re.search('dummy',sample.key):
             os.makedirs(self.output_dir)
         if sequencing_run != None:
@@ -222,10 +225,13 @@ class StandardPipeline(GenericProcess):
         self.date = date
         if base_output_dir == None:
             base_output_dir = config.get('Common_directories','bcbio_upload')
-        project = re.sub('_','-',barcode.project)
-        if re.search("[0-9]",project[0:1]):
-            project = "Project-" + project
-        self.output_dir = os.path.join(base_output_dir,project + "_" + self.sample_key + '_' + str(date))
+        if barcode.project is None:
+            self.output_dir = os.path.join(base_output_dir,sample.key + '_' + str(date))
+        else:
+            project = re.sub('_','-',barcode.project)
+            if re.search("[0-9]",project[0:1]):
+                project = "Project-" + project
+            self.output_dir = os.path.join(base_output_dir,project + "_" + sample.key + '_' + str(date))
         if not os.path.exists(self.output_dir) and not re.search('dummy',sample.key):
             os.makedirs(self.output_dir)
         if sequencing_run != None:
