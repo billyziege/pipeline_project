@@ -143,12 +143,9 @@ class SampleQsubProcess(QsubProcess):
             raise Exception("Trying to start a qcpipeline process on a non-sample.")
         self.sample_key = sample.key
         if output_dir is None:
-            if base_output_dir == None:
+            if base_output_dir is None:
                 base_output_dir = config.get('Common_directories','bcbio_upload')
-            project = re.sub('_','-',sample.project)
-            if re.search("[0-9]",project[0:1]):
-                project = "Project-" + project
-            self.output_dir = os.path.join(base_output_dir,project + "_" + self.sample_key + '_' + str(date))
+            self.output_dir = os.path.join(base_output_dir,self.sample_key + '_' + str(date))
         else:
             self.output_dir = output_dir
         QsubProcess.__init__(self,config,key=key,input_dir=input_dir,base_output_dir=base_output_dir,output_dir=self.output_dir,date=date,time=time,process_name=process_name,complete_file=complete_file,**kwargs)
@@ -156,15 +153,15 @@ class SampleQsubProcess(QsubProcess):
 
 class QualityControlPipeline(GenericProcess):
 
-    def __init__(self,config,key=int(-1),sample=None,flowcell=None,description=None,recipe=None,input_dir=None,base_output_dir=None,date=strftime("%Y%m%d",localtime()),time=strftime("%H:%M:%S",localtime()),process_name='qcpipeline',sequencing_run=None,running_location='Space',storage_needed=500000000,**kwargs):
+    def __init__(self,config,key=int(-1),sample=None,barcode=None,description=None,recipe=None,input_dir=None,base_output_dir=None,output_dir_front=None,date=strftime("%Y%m%d",localtime()),time=strftime("%H:%M:%S",localtime()),process_name='qcpipeline',sequencing_run=None,running_location='Space',storage_needed=None,**kwargs):
         if sample is None:
             sample = Sample(config,key="dummy_sample_key")
         if sample.__class__.__name__ != "Sample":
             raise Exception("Trying to start a qcpipeline process on a non-sample.")
-        if flowcell is None:
-            flowcell = Flowcell(config,key="dummy_flowcell_key")
-        if flowcell.__class__.__name__ != "Flowcell":
-            raise Exception("Trying to start a qcpipeline process on a non-flowcell.")
+        if barcode is None:
+            barcode = Barcode(config,key="dummy_barcode_key")
+        if barcode.__class__.__name__ != "Barcode":
+            raise Exception("Trying to start a qcpipeline process on a non-barcode.")
         #The keys for the sub-processes in this pipeline
         self.zcat_key = None
         self.bcbio_key = None
@@ -173,14 +170,16 @@ class QualityControlPipeline(GenericProcess):
         #Specific information about this pipeline
         self.description = description
         self.recipe = recipe
-        self.storage_needed = storage_needed
+        if storage_needed is None:
+            self.storage_needed = config.get('Storage','needed')
+        else:
+            self.storage_needed = storage_needed
         self.input_dir = input_dir
-        self.flowcell_key = flowcell.key
         self.running_location = running_location
         self.date = date
         if base_output_dir == None:
             base_output_dir = config.get('Common_directories','bcbio_upload')
-        project = re.sub('_','-',sample.project)
+        project = re.sub('_','-',barcode.project)
         if re.search("[0-9]",project[0:1]):
             project = "Project-" + project
         self.output_dir = os.path.join(base_output_dir,project + "_" + self.sample_key + '_' + str(date))
@@ -192,6 +191,8 @@ class QualityControlPipeline(GenericProcess):
             self.sequencing_key=None
         GenericProcess.__init__(self,config,key=key,process_name=process_name,**kwargs)
         self.sample_key = sample.key
+        self.flowcell_key = barcode.flowcell_key
+        self.barcode_key = barcode.key
 
     def __finish__(self,storage_device,date=datetime.date.today().strftime("%Y%m%d"),time=datetime.date.today().strftime("%H:%M")):
         GenericProcess.__finish__(self,date=date,time=time)
@@ -204,10 +205,10 @@ class StandardPipeline(GenericProcess):
             sample = Sample(config,key="dummy_sample_key")
         if sample.__class__.__name__ != "Sample":
             raise Exception("Trying to start a qcpipeline process on a non-sample.")
-        if flowcell is None:
-            flowcell = Flowcell(config,key="dummy_flowcell_key")
-        if flowcell.__class__.__name__ != "Flowcell":
-            raise Exception("Trying to start a qcpipeline process on a non-flowcell.")
+        if barcode is None:
+            barcode = Barcode(config,key="dummy_barcode_key")
+        if barcode.__class__.__name__ != "Barcode":
+            raise Exception("Trying to start a qcpipeline process on a non-barcode.")
         #The keys for the sub-processes in this pipeline
         self.zcat_key = None
         self.bcbio_key = None
@@ -217,12 +218,14 @@ class StandardPipeline(GenericProcess):
         self.recipe = recipe
         self.storage_needed = storage_needed
         self.input_dir = input_dir
-        self.flowcell_key = flowcell.key
         self.running_location = running_location
         self.date = date
         if base_output_dir == None:
             base_output_dir = config.get('Common_directories','bcbio_upload')
-        self.output_dir = os.path.join(base_output_dir, sample.key + "_" + date)
+        project = re.sub('_','-',barcode.project)
+        if re.search("[0-9]",project[0:1]):
+            project = "Project-" + project
+        self.output_dir = os.path.join(base_output_dir,project + "_" + self.sample_key + '_' + str(date))
         if not os.path.exists(self.output_dir) and not re.search('dummy',sample.key):
             os.makedirs(self.output_dir)
         if sequencing_run != None:
@@ -231,6 +234,8 @@ class StandardPipeline(GenericProcess):
             self.sequencing_key=None
         GenericProcess.__init__(self,config,key=key,process_name=process_name,**kwargs)
         self.sample_key = sample.key
+        self.flowcell_key = barcode.flowcell_key
+        self.barcode_key = barcode.key
 
     def __finish__(self,storage_device,date=datetime.date.today().strftime("%Y%m%d"),time=datetime.date.today().strftime("%H:%M")):
         GenericProcess.__finish__(self,date=date,time=time)

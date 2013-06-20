@@ -28,7 +28,7 @@ class Lane(KeyedObject):
 
 class Barcode(KeyedObject):
 
-    def __init__(self,config,sample=None,index='dummy',lane=None,**kwargs):
+    def __init__(self,config,sample=None,project=None,index='dummy',lane=None,**kwargs):
         if sample is None:
             sample = Sample(config,key="dummy_sample_key")
         if lane is None:
@@ -41,5 +41,7 @@ class Barcode(KeyedObject):
         self.obj_type = self.__class__.__name__
         self.sample_key = sample.key
         self.lane_key = lane.key
+        self.flowcell_key = lane.flowcell_key
+        self.project = project
         self.index = index
         self.reads = None

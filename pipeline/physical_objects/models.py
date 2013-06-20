@@ -7,12 +7,11 @@ class Sample(KeyedObject):
     The basic unit of sample.
     """
 
-    def __init__(self,config,key='dummy',state='active',project=None,plate=None,partner_key=None):
+    def __init__(self,config,key='dummy',state='active',plate=None,partner_key=None):
         """
         Initialize the sample object.
         """
         self.state = state
-        self.project = project
         self.current_plate = plate
         self.partner_key = partner_key #The active partnering.
         try:
