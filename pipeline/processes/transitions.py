@@ -1,7 +1,8 @@
 import sys
 import re
 from processes.parsing import parse_sample_sheet
-from processes.hiseq.scripts import list_sample_dirs, determine_run_type
+from processes.hiseq.scripts import list_monitoring_dirs, list_sample_dirs
+from processes.hiseq.sequencing_run import determine_run_type
 from manage_storage.scripts import identify_running_location_with_most_currently_available
 from demultiplex_stats.fill_demultiplex_stats import fill_demultiplex_stats
 
@@ -63,9 +64,9 @@ def things_to_do_if_sequencing_run_is_complete(config,storage_devices,mockdb,seq
             backup.__launch__(config,storage_device=storage_devices[backup.location])
             flowcell_fc_report_dict = mockdb['FlowcellStatisticsReports'].__attribute_value_to_object_dict__('flowcell_key')
             try:
-                report = flowcell_fc_report_dict[flowcell.key]
+                report = flowcell_fc_report_dict[flowcell.key][0]
             except KeyError:
-                report = mockdb['FlowcellStatisticsReports'].__new__(config,flowcell=flowcell,seq_run=seq_run,**kwargs):
+                report = mockdb['FlowcellStatisticsReports'].__new__(config,flowcell=flowcell,seq_run=seq_run)
             report.__add_pipeline__(pipeline)
     return 1
 

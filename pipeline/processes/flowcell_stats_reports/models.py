@@ -31,7 +31,7 @@ class FlowcellStatisticsReports(GenericProcess):
         if flowcell.__class__.__name__ != "Flowcell":
             raise Exception("Trying to start a flowcell statistics reports object on a non-flowcell.")
         if seq_run is None:
-            pipeline = SequencingRun(config,key="dummy_seq_run_key")
+            seq_run = SequencingRun(config,key=-1)
         GenericProcess.__init__(self,config,key=key,process_name=process_name,**kwargs)
         if base_output_dir == None:
             base_output_dir = config.get('Common_directories','flowcell_reports')
@@ -51,13 +51,13 @@ class FlowcellStatisticsReports(GenericProcess):
         Connects the report with a pipeline by recoding the
         pipeline key and pipeline obj_type in a string.
         """
-        if not res.search('Pipeline',pipeline):
+        if not re.search('Pipeline',pipeline.obj_type):
             raise Exception("Trying to add non-pipeline key to flowcell statistics reports")
         if not self.pipelines is None:
             self.pipelines += ';'
-            self.pipelines += pipeline.key + ":" + pipeline.__class__.__name__
+            self.pipelines += str(pipeline.key) + ":" + pipeline.obj_type
         else:
-            self.pipelines = pipeline.key + ":" + pipeline.obj_type
+            self.pipelines = str(pipeline.key) + ":" + pipeline.obj_type
 
     def __current_pipeline_list__(self,mockdb):
         """
@@ -67,7 +67,7 @@ class FlowcellStatisticsReports(GenericProcess):
         pipelines = []
         if self.pipelines is None:
             return pipelines
-        pipelines_dict = self.pipeline_keys.split(';')
+        pipelines_dict = self.pipelines.split(';')
         for d in pipelines_dict:
             pipeline_key, obj_type = d.split(':')
             pipeline = mockdb[obj_type].objects[pipeline_key]
@@ -106,7 +106,7 @@ class FlowcellStatisticsReports(GenericProcess):
         based on this number and what has been previously reported.
         Return True only if a new report object is initialized.
         """
-        sample_keys = self.__complete_samples_list__(mockdb)
+        sample_keys = self.__completed_samples_list__(mockdb)
         numbers = config.get('Flowcell_reports','numbers').split(',')
         numbers.sort(key=int,reverse=True)
         for number in numbers:

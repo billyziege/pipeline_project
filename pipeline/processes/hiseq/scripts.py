@@ -50,4 +50,3 @@ def list_sample_dirs(directory):
                 if re.search("Project",root):	
                     sample_dirs.extend([root])
     return sample_dirs
-

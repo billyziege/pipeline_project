@@ -21,9 +21,9 @@ class StorageDevice:
         if int(expected_available) < int(needed):
             return False
         my_space = int(self.limit) - int(self.my_use)
-        if int(my_space) < 0:
+        if int(my_space) < int(0):
             return False
         return True
 
     def __is_full__(self,extra):
-       return self.available < extra
+       return int(self.available) < int(extra)

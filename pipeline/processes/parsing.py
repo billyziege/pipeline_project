@@ -5,7 +5,8 @@ from processes.hiseq.scripts import translate_sample_name, list_sample_dirs
 
 #This function reads the sample sheet into appropriate objects
 def parse_sample_sheet(config,mockdb,directory):
-    samplesheet  = table_reader(os.path.join(directory, 'SampleSheet.csv'))[0]
+    table  = table_reader(os.path.join(directory, 'SampleSheet.csv'))
+    samplesheet = table[0]
     parsed = {}
     sample_key = translate_sample_name(samplesheet['SampleID'])
     parsed['project_name'] = samplesheet['SampleProject']

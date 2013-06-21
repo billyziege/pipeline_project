@@ -5,7 +5,7 @@ from mockdb.initiate_mockdb import initiate_mockdb,save_mockdb
 from manage_storage.scripts import initiate_storage_devices, add_waiting_storage, add_running_storage
 from processes.control import maintain_sequencing_run_objects, initialize_pipeline_for_finished_sequencing_runs,advance_running_qc_pipelines
 from processes.control import advance_running_std_pipelines,run_pipelines_with_enough_space
-from processes.control import continue_backup_processes
+from processes.control import continue_backup_processes, handle_automated_reports
 from processes.transitions import things_to_do_if_initializing_pipeline_with_input_directory
 
 parser = argparse.ArgumentParser(description='Manages data and submits new jobs.')

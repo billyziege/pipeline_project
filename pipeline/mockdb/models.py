@@ -162,10 +162,10 @@ class SetOfKeyedObjects:
         if len(first_clses) > 1:
             raise TypeError("The class {0} cannot be made into a SetOf class.\n".format(cls.__name__))
         #Some keyed classes might have children classes.  Load these as well unless no_children is flagged
-        if no_children == True:
+        if no_children is True:
             clses = [self.cls]
         else:
-            clses = [self.cls] + child_classes(config,self.cls)
+            clses = [self.cls] + child_classes(self.cls,config=config)
         for c in clses:
             db_fname = db_file_name(first_clses[0],self.cls,base_dir)
             #sys.stderr.write("%s\n" % db_fname)
@@ -353,8 +353,7 @@ class SetOfKeyedObjects:
 class SetOfNumberedObjects(SetOfKeyedObjects):
 
     def __init__(self,cls=NumberedObject,*args,**kwargs):
-        self.cls=cls
-	SetOfKeyedObjects.__init__(self,self.cls,*args,**kwargs)
+        SetOfKeyedObjects.__init__(self,cls=cls,*args,**kwargs)
 
     def __max_key__(self,config):
         keys = self.objects.keys()
@@ -367,7 +366,7 @@ class SetOfNumberedObjects(SetOfKeyedObjects):
         #Load ancestor databases to get 
         #access to their keys
         for cls in anc_clses:
-            other = cls(cls=cls)
+            other = SetOfNumberedObjects(cls=cls)
             other.__load__(config)
             keys += other.objects.keys()
         if keys == []:

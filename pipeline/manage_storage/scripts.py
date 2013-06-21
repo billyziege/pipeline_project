@@ -45,7 +45,7 @@ def add_backup_running_storage(config,storage_devices,mockdb,backup_name):
     state_dict = mockdb[backup_name].__attribute_value_to_object_dict__('state')
     try:
         for backup in state_dict['Running']:
-            storage_devices[backup.location].my_use += config.get('Storage','required_fastq_size')
+            storage_devices[backup.location].my_use += int(config.get('Storage','required_fastq_size'))
     except KeyError:
         pass
     return 1
@@ -86,7 +86,8 @@ def identify_running_location_with_most_currently_available(config,storage_devic
     best_location = None
     largest_available = None
     needed_storage = int(config.get('Storage','needed'))
-    for location, storage_device in storage_devices.iteritems():
+    for location in config.get('Location_options','list').split(','):
+        storage_device = storage_devices[location]
         current_available = storage_device.available - storage_device.waiting
         if best_location == None:
             best_location = location

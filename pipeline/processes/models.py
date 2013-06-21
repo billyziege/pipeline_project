@@ -3,6 +3,7 @@ import os
 import pytz
 import subprocess
 import re
+import sys
 from time import strftime, localtime
 from mockdb.models import NumberedObject
 from physical_objects.models import Sample

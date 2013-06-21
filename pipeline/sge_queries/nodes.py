@@ -2,6 +2,7 @@ import subprocess
 import ConfigParser
 import random
 import re
+import sys
 from sge_queries.models import Node
 
 def initialize_nodes():
@@ -50,11 +51,14 @@ def note_jobs(nodes):
     return nodes
 
 def minimal_jobs(nodes):
-    min_jobs = 999
+    min_jobs = 'Inf'
     for name,node in nodes.iteritems():
         if node.number_jobs == 'Inf':
             continue
         if node.broken == True:
+            continue
+        if min_jobs == 'Inf' and isinstance(node.number_jobs, int):
+            min_jobs = node.number_jobs
             continue
         if node.number_jobs < min_jobs:
             min_jobs = node.number_jobs
@@ -78,8 +82,9 @@ def grab_good_node(config,node_list=None):
         min_nodes = lightest_working(nodes)
     else:
         subset_nodes = {}
-        for node_key, node in nodes.keys():
-            if node_key in node_list:
+        available_nodes = node_list.split(',')
+        for node_key, node in nodes.iteritems():
+            if node_key in available_nodes:
                 subset_nodes.update({node_key: node})
         min_nodes = lightest_working(subset_nodes)
     if len(min_nodes.keys()) < 1:
@@ -89,5 +94,8 @@ def grab_good_node(config,node_list=None):
     
 if __name__ == '__main__':
     config = ConfigParser.ConfigParser()
-    config.read('/mnt/iscsi_space/zerbeb/qc_pipeline_project/qc_pipeline/config/qc.cfg')
-    print grab_good_node(config)
+    config.read('/mnt/iscsi_space/zerbeb/pipeline_project/pipeline/config/qc.cfg')
+    if len(sys.argv) > 1:
+    	print grab_good_node(config,sys.argv[1])
+    else:
+    	print grab_good_node(config)
