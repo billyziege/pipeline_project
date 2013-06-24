@@ -12,7 +12,7 @@ data$Lane = 'Previous runs'
 for (sample in current_samples$V1){
     data$Lane[data$Sample_ID == sample] = paste('Lane ',data$Lane_number[data$Sample_ID == sample])
 }
-a <- ggplot(data, aes(x = Mean_target_coverage, y = Percentage_of_reads_with_zero_coverage_targets, color = Run))
+a <- ggplot(data, aes(x = Mean_target_coverage, y = Percentage_of_reads_with_zero_coverage_targets, color = Lane))
 a <- a + geom_point(size=3)
 a <- a + theme_bw()
 a <- a + theme(axis.line = element_line(colour = 'black'))

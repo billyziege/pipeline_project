@@ -183,6 +183,12 @@ class SetOfKeyedObjects:
                             if vals[i] == 'None':
                                 setattr(instance,keys[i],None)
                                 continue
+                            if vals[i] == 'True':
+                                setattr(instance,keys[i],True)
+                                continue
+                            if vals[i] == 'False':
+                                setattr(instance,keys[i],False)
+                                continue
                             if keys[i] == 'sample_key' or self.cls.__name__ == 'Sample':
                                 setattr(instance,keys[i],vals[i])
                                 continue

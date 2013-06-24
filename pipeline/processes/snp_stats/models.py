@@ -61,9 +61,9 @@ class SnpStats(SampleQsubProcess):
         and if necessary the completeness, of the concordance search.  Then, once 
         complete, relevant statistics are stored.
         """
-        if os.path.isfile(self.complete_file):
-            pass
-        else:
+        if GenericProcess.__is_complete__():
+            return True
+        elif not os.path.isfile(self.complete_file):
             return False
         store_snp_stats_in_db(self)
         if self.percentage_concordance > config.get('Concordance','threshold'):
@@ -196,9 +196,9 @@ class ConcordanceSearch(SampleQsubProcess):
         If so, the top 5 "scoring" results of the search are
         stored.
         """
-        if os.path.isfile(self.complete_file):
-            pass
-        else:
+        if GenericProcess.__is_complete__():
+            return True
+        elif not os.path.isfile(self.complete_file):
             return False
         return_vals = grab_search_stats(self.output_path)
         self.first_match = return_vals[-2]

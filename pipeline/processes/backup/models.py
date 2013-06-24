@@ -53,7 +53,9 @@ class Backup(SampleQsubProcess):
         where the keys for the input and output files are not the
         same, and handles notifications (if any).
         """
-        if not os.path.isfile(self.complete_file):
+        if GenericProcess.__is_complete__():
+            return True
+        elif not os.path.isfile(self.complete_file):
             return False
         failed_files = self.__failed_files__(config)
         if len(failed_files) > 0:

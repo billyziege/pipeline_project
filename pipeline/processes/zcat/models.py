@@ -43,9 +43,9 @@ class Zcat(SampleQsubProcess):
         """
         Check to the complete file of the zcat process and handles notifications (if any).
         """
-        if os.path.isfile(self.complete_file):
-            pass
-        else:
+        if GenericProcess.__is_complete__():
+            return True
+        elif not os.path.isfile(self.complete_file):
             return False
         #If the process is complete, check to make sure that the sizes of the file are adequate.  If not, send email.
         size1 = disk_usage(self.r1_path)

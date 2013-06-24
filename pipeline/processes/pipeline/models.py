@@ -97,7 +97,9 @@ class Bcbio(SampleQsubProcess):
         this function contains the logic to check to makes sure all of these processes
         have completed successfully.  If complete, the relevant statistics are stored.
         """
-        if not os.path.isfile(self.complete_file):
+        if GenericProcess.__is_complete__():
+            return True
+        elif not os.path.isfile(self.complete_file):
             return False
         check_file = os.path.join(self.output_dir,'project-summary.csv')
         #If the process is complete, check to make sure that the check file is created.  If not, send email once.

@@ -10,6 +10,7 @@ from physical_objects.models import Sample
 from physical_objects.hiseq.models import Flowcell, Barcode
 from sge_queries.nodes import grab_good_node
 from sge_queries.jobs import check_if_single_job_running_on_system
+from template.scripts import fill_template
 
 class GenericProcess(NumberedObject):
     """
@@ -116,7 +117,10 @@ class QsubProcess(GenericProcess):
         """
         Checks to see if the complete file is created.
         """
-        return os.path.isfile(self.complete_file)
+        if GenericProcess.__is_complete__() is False:
+            return os.path.isfile(self.complete_file)
+        else:
+            return True
 
     def __present_on_system__(self):
         """

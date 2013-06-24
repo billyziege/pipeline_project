@@ -1,5 +1,6 @@
 import datetime
 import os
+import sys
 import pytz
 import subprocess
 import re
@@ -13,6 +14,7 @@ from sge_queries.jobs import check_if_single_job_running_on_system
 from processes.flowcell_stats_reports.scripts import write_list_file
 from sge_email.scripts import send_email
 from reports.post_pipeline_report import produce_outlier_table
+from template.scripts import fill_template
 
 class FlowcellStatisticsReports(GenericProcess):
     """
@@ -34,7 +36,7 @@ class FlowcellStatisticsReports(GenericProcess):
             seq_run = SequencingRun(config,key=-1)
         GenericProcess.__init__(self,config,key=key,process_name=process_name,**kwargs)
         if base_output_dir == None:
-            base_output_dir = config.get('Common_directories','flowcell_reports')
+            self.base_output_dir = config.get('Common_directories','flowcell_reports')
         else:
             self.base_output_dir = base_output_dir
         self.flowcell_key = flowcell.key
@@ -70,8 +72,11 @@ class FlowcellStatisticsReports(GenericProcess):
         pipelines_dict = self.pipelines.split(';')
         for d in pipelines_dict:
             pipeline_key, obj_type = d.split(':')
-            pipeline = mockdb[obj_type].objects[pipeline_key]
-            pipelines.addend(pipeline)
+            try:
+		pipeline = mockdb[obj_type].objects[int(pipeline_key)]
+            except KeyError:
+                sys.exit("Key error in determining pipeline for report.\n")
+            pipelines.append(pipeline)
         return pipelines
 
     def __completed_samples_list__(self,mockdb):
@@ -82,21 +87,23 @@ class FlowcellStatisticsReports(GenericProcess):
         sample_keys = []
         for pipeline in self.__current_pipeline_list__(mockdb):
             if pipeline.__is_complete__():
-                sample_keys.addend(pipeline.sample_key)
+                sample_keys.append(pipeline.sample_key)
         return sample_keys
 
-    def __is_complete__(self,mockdb):
+    def __is_complete__(self,config,mockdb):
         """
         Return True if all pipelines in the report object
         have completed.
         """
+        if GenericProcess.__is_complete__():
+            return True
         if self.pipelines is None:
             return False
         for pipeline in self.__current_pipeline_list__(mockdb):
             if not pipeline.__is_complete__():
                 return False
         #Add samples to the all sample list
-        sample_keys = self.__complete_samples_list__(mockdb)
+        sample_keys = self.__completed_samples_list__(mockdb)
         write_list_file(sample_keys,config.get('Filenames','all_samples'),original_list_file=config.get('Filenames','all_samples'))
         return True
 
@@ -109,10 +116,12 @@ class FlowcellStatisticsReports(GenericProcess):
         sample_keys = self.__completed_samples_list__(mockdb)
         numbers = config.get('Flowcell_reports','numbers').split(',')
         numbers.sort(key=int,reverse=True)
+        flowcell = mockdb['Flowcell'].__get__(config,key=self.flowcell_key)
         for number in numbers:
-            if len(sample_keys) >= number:
+            if len(sample_keys) >= int(number):
                 if getattr(self,'flowcell_report_' + str(number) + '_key') is None:
-                    report = mockdb['FlowcellStatisticReport'].__new__(config,sample_keys=sample_keys,number=number,base_output_dir=self.base_output_dir)
+                    report = mockdb['FlowcellStatisticReport'].__new__(config,sample_keys=sample_keys,flowcell=flowcell,number=number,base_output_dir=self.base_output_dir)
+                    report.__fill_qsub_file__(config)
                     report.__launch__(config)
                     setattr(self,'flowcell_report_' + str(number) + '_key',report.key)
                     return True
@@ -128,29 +137,29 @@ class FlowcellStatisticsReports(GenericProcess):
         numbers = config.get('Flowcell_reports','numbers').split(',')
         for number in numbers:
             flowcell_report_key = getattr(self,'flowcell_report_' + str(number) + '_key')
-            if key is None:
+            if flowcell_report_key is None:
                 continue
             report = mockdb['FlowcellStatisticReport'].objects[flowcell_report_key]
-            if report.report_sent is True:
+            if report.report_sent is True: #If the report is already sent, next.
                 continue
-            if not report.__is_complete__():
+            if not report.__is_complete__(): #If the qsub script is still running, next.
                 continue
-            report.__finish()
+            report.__finish__()
             if self.sequencing_run_type == 'RapidRun' and str(number) == '16':
-                recipients = config.get('Flowcell_reports','last_recipients').split(',')
+                recipients = config.get('Flowcell_reports','last_recipients')
                 subject, body = report.__generate_flowcell_report_text__(config,mockdb,report_type="last_report")
                 self.__finish__()
             elif self.sequencing_run_type == 'HighThroughputRun' and str(number) == '64':
-                recipients = config.get('Flowcell_reports','last_recipients').split(',')
+                recipients = config.get('Flowcell_reports','last_recipients')
                 subject, body = report.__generate_flowcell_report_text__(config,mockdb,report_type="last_report")
                 self.__finish__()
             else:
-                recipients = config.get('Flowcell_reports','subset_recipients').split(',')
+                recipients = config.get('Flowcell_reports','subset_recipients')
                 subject, body = report.__generate_flowcell_report_text__(config,mockdb,report_type="subset_report")
             files = []
             files.append(report.full_report)
             files.append(report.current_report)
-            if not report.outlier is None:
+            if not report.outlier_table is None:
                 files.append(report.outlier_table)
             files.append(report.concordance_png)
             files.append(report.dbsnp_png)
@@ -168,7 +177,7 @@ class FlowcellStatisticReport(QsubProcess):
     Qsub process that generates the report files and sends an email.
     """
 
-    def __init__(self,config,sample_keys,number,key=int(-1),flowcell=None,input_dir=None,base_output_dir=None,output_dir=None,date=strftime("%Y%m%d",localtime()),time=strftime("%H:%M:%S",localtime()),process_name='flowcell_report',complete_file=None,**kwargs):
+    def __init__(self,config,sample_keys=None,number=None,key=int(-1),flowcell=None,input_dir=None,base_output_dir=None,output_dir=None,date=strftime("%Y%m%d",localtime()),time=strftime("%H:%M:%S",localtime()),process_name='flowcell_report',complete_file=None,**kwargs):
         """
         Initializes flowcell statistic report.
         """
@@ -188,13 +197,18 @@ class FlowcellStatisticReport(QsubProcess):
             self.complete_file = complete_file
         QsubProcess.__init__(self,config,key=key,input_dir=input_dir,base_output_dir=base_output_dir,output_dir=self.output_dir,date=date,time=time,process_name=process_name,complete_file=self.complete_file,**kwargs)
         self.flowcell_key = flowcell.key
-        self.sample_keys = ";".join(sample_keys)
+        if sample_keys is None:
+            self.sample_keys = ""
+        else:
+            self.sample_keys = ";".join(sample_keys)
         self.number = number
         #List of samples from the project
         self.all_samples_file = os.path.join(self.output_dir,'all_samples.ls')
-        write_list_file(sample_keys,self.all_samples_file,original_list_file=config.get('Filenames','all_samples'))
+        if self.key != -1:
+            write_list_file(sample_keys,self.all_samples_file,original_list_file=config.get('Filenames','all_samples'))
         self.current_samples_file = os.path.join(self.output_dir,'current_samples.ls')
-        write_list_file(sample_keys,self.current_samples_file)
+        if self.key != -1:
+            write_list_file(sample_keys,self.current_samples_file)
         #Output files
         self.full_report = os.path.join(self.output_dir,'all_samples_report.csv')
         self.current_report = os.path.join(self.output_dir,'current_samples_report.csv')
@@ -216,7 +230,7 @@ class FlowcellStatisticReport(QsubProcess):
         dictionary = {}
         for k,v in self.__dict__.iteritems():
             dictionary.update({k:str(v)})
-        dictionary.update({'post_pipeline_report':config.get('Db_reports','post_pipeline')})
+        dictionary.update({'post_pipeline':config.get('Db_reports','post_pipeline')})
         dictionary.update({'concord_script':config.get('Flowcell_reports','concord_script')})
         dictionary.update({'dbsnp_script':config.get('Flowcell_reports','dbsnp_script')})
         dictionary.update({'tenx_script':config.get('Flowcell_reports','tenx_script')})
@@ -233,16 +247,16 @@ class FlowcellStatisticReport(QsubProcess):
         dictionary = {}
         for k,v in self.__dict__.iteritems():
             dictionary.update({k:str(v)})
-        outlier_table = produce_outlier_table(config,mockdb,self.current_samples_report)
+        outlier_table = produce_outlier_table(config,mockdb,self.current_report)
         if outlier_table is None:
-            template_subject = os.path.join(config.get('Common_directories','template'),config.get('Flowcell_report_email_templates',report_type + '_subject'))
-            template_body = os.path.join(config.get('Common_directories','template'),config.get('Flowcell_report_email_templates',report_type + '_no_outliers_body'))
+            template_subject = os.path.join(config.get('Common_directories','template'),config.get('Flowcell_reports_email_templates',report_type + '_subject'))
+            template_body = os.path.join(config.get('Common_directories','template'),config.get('Flowcell_reports_email_templates',report_type + '_no_outliers_body'))
         else:
             with open(self.outlier_table,'w') as f:
                 f.write(outlier_table)
             dictionary.update({'outlier_table': outlier_table})
-            template_subject = os.path.join(config.get('Common_directories','template'),config.get('Flowcell_report_email_templates',report_type + '_subject'))
-            template_body = os.path.join(config.get('Common_directories','template'),config.get('Flowcell_report_email_templates',report_type + '_body'))
+            template_subject = os.path.join(config.get('Common_directories','template'),config.get('Flowcell_reports_email_templates',report_type + '_subject'))
+            template_body = os.path.join(config.get('Common_directories','template'),config.get('Flowcell_reports_email_templates',report_type + '_body'))
         sample_keys = self.sample_keys.split(";")
         number_samples = len(sample_keys)
         dictionary.update({'number_samples': str(number_samples)})

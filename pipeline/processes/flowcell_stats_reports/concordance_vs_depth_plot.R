@@ -3,7 +3,7 @@
 #a subsample from that list with the provided
 #number of elements
 
-.libPaths( c( .libPaths(), "/mnt/iscsi_speed/devel/lib64/R/library") )
+.libPaths( c(.libPaths(), "/mnt/iscsi_speed/devel/lib64/R/library") )
 args <- commandArgs(TRUE)
 data <- read.table(file=args[1],sep=",",header=TRUE)
 current_samples <- read.table(file=args[2],header=FALSE)

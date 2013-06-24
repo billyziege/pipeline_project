@@ -3,7 +3,7 @@
 #a subsample from that list with the provided
 #number of elements
 
-.libPaths( c( .libPaths(), "/mnt/iscsi_speed/devel/lib64/R/library") )
+.libPaths( c(.libPaths(), "/mnt/iscsi_speed/devel/lib64/R/library") )
 args <- commandArgs(TRUE)
 data <- read.table(file=args[1],sep=",",header=TRUE)
 current_samples <- read.table(file=args[2],header=FALSE)
@@ -12,7 +12,7 @@ data$Lane = 'Previous runs'
 for (sample in current_samples$V1){
     data$Lane[data$Sample_ID == sample] = paste('Lane ',data$Lane_number[data$Sample_ID == sample])
 }
-a <- ggplot(data, aes(x = Mean_target_coverage, y = In_dbSNP, color = Run))
+a <- ggplot(data, aes(x = Mean_target_coverage, y = In_dbSNP, color = Lane))
 a <- a + geom_point(size=3)
 a <- a + theme_bw()
 a <- a + theme(axis.line = element_line(colour = 'black'))
