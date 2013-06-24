@@ -3,7 +3,7 @@ import re
 from manage_storage.disk_queries import disk_usage
 from physical_objects.models import Sample
 from processes.pipeline.models import Bcbio
-from processes.models import SampleQsubProcess
+from processes.models import GenericProcess, SampleQsubProcess
 from processes.snp_stats.extract_stats import store_snp_stats_in_db, grab_search_stats
 from template.scripts import fill_template
 
@@ -61,7 +61,7 @@ class SnpStats(SampleQsubProcess):
         and if necessary the completeness, of the concordance search.  Then, once 
         complete, relevant statistics are stored.
         """
-        if GenericProcess.__is_complete__():
+        if GenericProcess.__is_complete__(self):
             return True
         elif not os.path.isfile(self.complete_file):
             return False
@@ -196,7 +196,7 @@ class ConcordanceSearch(SampleQsubProcess):
         If so, the top 5 "scoring" results of the search are
         stored.
         """
-        if GenericProcess.__is_complete__():
+        if GenericProcess.__is_complete__(self):
             return True
         elif not os.path.isfile(self.complete_file):
             return False

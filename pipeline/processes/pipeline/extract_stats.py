@@ -43,7 +43,7 @@ if __name__ == '__main__':
     parser.add_argument('-s','--summary_file', dest='summary_file', type=str, default=None, help='The path to the summary file.  The default is the output_dir of the bcbio process followed project-summary.csv')    
     args = parser.parse_args()
     config = ConfigParser.ConfigParser()
-    config.read('/mnt/iscsi_space/zerbeb/qc_pipeline_project/qc_pipeline/config/qc.cfg')
+    config.read('/mnt/iscsi_space/zerbeb/pipeline_project/pipeline/config/qc.cfg')
     mockdb = initiate_mockdb(config)
     sample_bcbio_dict = mockdb['Bcbio'].__attribute_value_to_object_dict__('sample_key')
     bcbio = sample_bcbio_dict[args.sample_key][0]

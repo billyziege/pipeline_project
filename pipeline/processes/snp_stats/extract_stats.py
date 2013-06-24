@@ -74,7 +74,7 @@ if __name__ == '__main__':
     parser.add_argument('-d','--directory', dest='directory', type=str, default=None, help='The path to the concordance and hethom files.  The default is the files stored in the snp_stats process.')    
     args = parser.parse_args()
     config = ConfigParser.ConfigParser()
-    config.read('/mnt/iscsi_space/zerbeb/qc_pipeline_project/qc_pipeline/config/qc.cfg')
+    config.read('/mnt/iscsi_space/zerbeb/pipeline_project/pipeline/config/qc.cfg')
     mockdb = initiate_mockdb(config)
     sample_snp_stats_dict = mockdb['SnpStats'].__attribute_value_to_object_dict__('sample_key')
     try:

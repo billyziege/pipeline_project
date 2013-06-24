@@ -117,7 +117,7 @@ class QsubProcess(GenericProcess):
         """
         Checks to see if the complete file is created.
         """
-        if GenericProcess.__is_complete__() is False:
+        if GenericProcess.__is_complete__(self) is False:
             return os.path.isfile(self.complete_file)
         else:
             return True

@@ -138,7 +138,6 @@ def advance_running_qc_pipeline(config,storage_devices,pipeline,mockdb):
     if that stage is complete, and then passes the relevant
     objects to subfunctions that handle the next step.
     """
-    print "Advaning pipeline for {0}".format(pipeline.sample_key)
     if pipeline.zcat_key == None: #zcat hasn't begun, which should not be the case.
         pipeline.state = 'Initialized'
         raise FormattingError("The pipeline somehow began running before zcatting.")
@@ -147,7 +146,6 @@ def advance_running_qc_pipeline(config,storage_devices,pipeline,mockdb):
         if zcat.__is_complete__(config):
             things_to_do_if_zcat_complete(config,mockdb,pipeline,zcat)
         return 1
-    print "Zcat complete"
     if pipeline.snp_stats_key is None: #snp_stats hasn't begun
         bcbio = mockdb['Bcbio'].__get__(config,int(pipeline.bcbio_key))
         if bcbio.__snps_called__():
@@ -160,10 +158,8 @@ def advance_running_qc_pipeline(config,storage_devices,pipeline,mockdb):
             things_to_do_if_bcbio_complete(config,mockdb,pipeline,bcbio)
             snp_stats.__finish__()
         return 1
-    print "Bcbio complete"
     clean_bcbio = mockdb['CleanBcbio'].__get__(config,int(pipeline.cleaning_key))
     if clean_bcbio.__is_complete__():
-        print "Clean complete"
         things_to_do_if_bcbio_cleaning_complete(storage_devices,mockdb,pipeline,clean_bcbio)
     return 1
 

@@ -37,16 +37,13 @@ else:
 continue_backup_processes(config,storage_devices,mockdb)
 
 #Advance the running pipelines.  If a step is done, preceed to the next.  If the pipeline is done, complete it.
-print "Advancing"
 advance_running_qc_pipelines(config,storage_devices,mockdb)
 advance_running_std_pipelines(config,storage_devices,mockdb)
 
 #The remaining pipeline are taking up storage.  Account for this
-print "Adding running storage"
 add_running_storage(config,storage_devices,mockdb)
 
 #If there is enough space, moce the next pipeline into the queue
-print "Adding new pipelines"
 run_pipelines_with_enough_space(config,storage_devices,mockdb,'QualityControlPipeline')
 run_pipelines_with_enough_space(config,storage_devices,mockdb,'StandardPipeline')
 

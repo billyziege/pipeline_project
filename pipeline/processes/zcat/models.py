@@ -2,7 +2,7 @@ import os
 import re
 from manage_storage.disk_queries import disk_usage
 from physical_objects.hiseq.models import Sample
-from processes.models import SampleQsubProcess
+from processes.models import GenericProcess, SampleQsubProcess
 from template.scripts import fill_template
 from sge_email.scripts import send_email
 
@@ -43,7 +43,7 @@ class Zcat(SampleQsubProcess):
         """
         Check to the complete file of the zcat process and handles notifications (if any).
         """
-        if GenericProcess.__is_complete__():
+        if GenericProcess.__is_complete__(self):
             return True
         elif not os.path.isfile(self.complete_file):
             return False

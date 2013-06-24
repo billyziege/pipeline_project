@@ -3,7 +3,7 @@ import re
 import sys
 from physical_objects.models import Sample
 from physical_objects.hiseq.models import Flowcell
-from processes.models import SampleQsubProcess
+from processes.models import GenericProcess, SampleQsubProcess
 from processes.pipeline.extract_stats import grab_project_summary_stats, store_stats_in_db
 from template.scripts import fill_template
 from sge_email.scripts import send_email
@@ -97,7 +97,7 @@ class Bcbio(SampleQsubProcess):
         this function contains the logic to check to makes sure all of these processes
         have completed successfully.  If complete, the relevant statistics are stored.
         """
-        if GenericProcess.__is_complete__():
+        if GenericProcess.__is_complete__(self):
             return True
         elif not os.path.isfile(self.complete_file):
             return False

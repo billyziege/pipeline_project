@@ -3,7 +3,7 @@ import re
 import sys
 from manage_storage.disk_queries import disk_usage
 from physical_objects.hiseq.models import Sample
-from processes.models import SampleQsubProcess
+from processes.models import GenericProcess, SampleQsubProcess
 from template.scripts import fill_template
 from sge_email.scripts import send_email
 
@@ -53,7 +53,7 @@ class Backup(SampleQsubProcess):
         where the keys for the input and output files are not the
         same, and handles notifications (if any).
         """
-        if GenericProcess.__is_complete__():
+        if GenericProcess.__is_complete__(self):
             return True
         elif not os.path.isfile(self.complete_file):
             return False

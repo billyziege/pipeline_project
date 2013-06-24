@@ -95,7 +95,7 @@ class FlowcellStatisticsReports(GenericProcess):
         Return True if all pipelines in the report object
         have completed.
         """
-        if GenericProcess.__is_complete__():
+        if GenericProcess.__is_complete__(self):
             return True
         if self.pipelines is None:
             return False
