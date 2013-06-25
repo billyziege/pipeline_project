@@ -15,6 +15,7 @@ from processes.flowcell_stats_reports.scripts import write_list_file
 from sge_email.scripts import send_email
 from reports.post_pipeline_report import produce_outlier_table
 from template.scripts import fill_template
+from reports.pdf_wrapper import outlier_table_for_pdf, add_square_images, initialize_standard_doc
 
 class FlowcellStatisticsReports(GenericProcess):
     """
