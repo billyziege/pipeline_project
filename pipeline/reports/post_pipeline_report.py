@@ -154,21 +154,7 @@ def produce_outlier_table(config,mockdb,fname,na_mark='-'):
     this will appear as a na_mark (default '-') in the table.  If no
     samples are found to be outliers, None is returned.
     """
-    in_table = table_reader(fname)
-    #Identify the outliers
-    statistic = 'Mean_target_coverage'
-    low, high = grab_thresholds_from_config(config,'Flowcell_reports','mean_depth_thresholds')
-    mean_depth_dict = pull_outlier_samples(in_table,statistic,low_threshold=low,high_threshold=high)
-    statistic = 'Heterozygous/Homozygous'
-    low, high = grab_thresholds_from_config(config,'Flowcell_reports','hethom_thresholds')
-    hethom_dict = pull_outlier_samples(in_table,statistic,low_threshold=low,high_threshold=high)
-    statistic = 'Self_concordance'
-    low, high = grab_thresholds_from_config(config,'Flowcell_reports','concordance_thresholds')
-    concord_dict = pull_outlier_samples(in_table,statistic,low_threshold=low,high_threshold=high)
-    statistic = 'In_dbSNP'
-    low, high = grab_thresholds_from_config(config,'Flowcell_reports','dbsnp_thresholds')
-    dbsnp_dict = pull_outlier_samples(in_table,statistic,low_threshold=low,high_threshold=high)
-    
+    outliers_dicts = push_outliers_into_dicts(config,fname)
     #Set up the ouput table.
     out_table = Texttable()
     out_table.set_deco(Texttable.HEADER)
@@ -178,33 +164,33 @@ def produce_outlier_table(config,mockdb,fname,na_mark='-'):
     width = [20]
     header = ['Sample ID']
     all_sample_keys = set([])
-    if len(mean_depth_dict.keys()) > 0:
+    if len(outliers_dicts['Mean depth'].keys()) > 0:
         halign.append('c')
         valign.append('m')
         dtype.append('i')
         width.append(10)
         header.append('Mean depth')
-        all_sample_keys.update(set(mean_depth_dict.keys()))
-    if len(hethom_dict.keys()) > 0:
+        all_sample_keys.update(set(outliers_dicts['Mean depth'].keys()))
+    if len((outliers_dicts['Het/Hom'].keys()) > 0:
         halign.append('c')
         valign.append('m')
         dtype.append('f')
         header.append('Het/Hom')
         width.append(9)
-        all_sample_keys.update(set(hethom_dict.keys()))
-    if len(concord_dict.keys()) > 0:
+        all_sample_keys.update(set(outliers_dicts['Het/Hom'].keys()))
+    if len(outliers_dicts['Concordance'].keys()) > 0:
         halign.append('c')
         valign.append('m')
         dtype.append('f')
         width.append(13)
         header.append('Concordance')
-        all_sample_keys.update(set(concord_dict.keys()))
+        all_sample_keys.update(set(outliers_dicts['Concordance'].keys()))
         halign.append('c')
         valign.append('m')
         dtype.append('t')
         width.append(30)
         header.append('Best matches (Concordance)')
-    if len(dbsnp_dict.keys()) > 0:
+    if len(outliers_dicts['Percentage\nin dbSNP'].keys()) > 0:
         halign.append('c')
         valign.append('m')
         dtype.append('f')
@@ -221,34 +207,48 @@ def produce_outlier_table(config,mockdb,fname,na_mark='-'):
     out_table.header(header)
     for sample_key in all_sample_keys:
         row = [sample_key]
-        if 'Mean depth' in header:
+        for column in header:
+            if column == 'Sample ID':
+                continue
             try:
                 row.append(mean_depth_dict[sample_key])
-            except KeyError:
-                row.append(na_mark)
-        if 'Het/Hom' in header:
-            try:
-                row.append(hethom_dict[sample_key])
-            except KeyError:
-                row.append(na_mark)
-        if 'Concordance' in header:
-            try:
-                row.append(concord_dict[sample_key])
-                best_matches = pull_five_best_concordance_matches(mockdb,sample_key)
-                formatted_matches = []
-                for match in best_matches:
-                    formatted_matches.append(str(match[0]) + " (" + str(match[1]) + ")")
-                row.append("\n".join(formatted_matches))
-            except KeyError:
-                row.append(na_mark)
-                row.append(na_mark)
-        if 'Percentage\nin dbSNP' in header:
-            try:
-                row.append(dbsnp_dict[sample_key])
+                if column == "Concordance":
+                    best_matches = pull_five_best_concordance_matches(mockdb,sample_key)
+                    formatted_matches = []
+                    for match in best_matches:
+                        formatted_matches.append(str(match[0]) + " (" + str(match[1]) + ")")
+                    row.append("\n".join(formatted_matches))
             except KeyError:
                 row.append(na_mark)
         out_table.add_row(row)
     return out_table.draw()
+
+def push_outliers_into_dicts(config,fname):
+    """
+    This produces dictionaries for the outliers and their values for the
+    statistics of interest.
+    """
+    in_table = table_reader(fname)
+    ouliers_dicts = {}
+    #Identify the outliers
+    statistic = 'Mean_target_coverage'
+    low, high = grab_thresholds_from_config(config,'Flowcell_reports','mean_depth_thresholds')
+    mean_depth_dict = pull_outlier_samples(in_table,statistic,low_threshold=low,high_threshold=high)
+    outliers_dicts.update({'Mean depth': mean_depth_dict})
+    statistic = 'Heterozygous/Homozygous'
+    low, high = grab_thresholds_from_config(config,'Flowcell_reports','hethom_thresholds')
+    hethom_dict = pull_outlier_samples(in_table,statistic,low_threshold=low,high_threshold=high)
+    outliers_dicts.update({'Het/Hom': hethom_dict})
+    statistic = 'Self_concordance'
+    low, high = grab_thresholds_from_config(config,'Flowcell_reports','concordance_thresholds')
+    concord_dict = pull_outlier_samples(in_table,statistic,low_threshold=low,high_threshold=high)
+    outliers_dicts.update({'Concordance': concord_dict})
+    statistic = 'In_dbSNP'
+    low, high = grab_thresholds_from_config(config,'Flowcell_reports','dbsnp_thresholds')
+    dbsnp_dict = pull_outlier_samples(in_table,statistic,low_threshold=low,high_threshold=high)
+    outliers_dicts.update({'Percentage\nin dbSNP': concord_dict})
+    return outliers_dicts
+    
 
 if __name__ == "__main__":
     #Handle arguments
