@@ -114,6 +114,8 @@ def pull_outlier_samples(table,statistic,low_threshold=None,high_threshold=None)
             value = dictionary[statistic].strip('x')
         except KeyError:
             continue
+        if value == 'NA':
+            outliers.update({sample_id: value})
         if not low_threshold is None:
             if float(value) < float(low_threshold):
                 outliers.update({sample_id: value})
@@ -213,13 +215,19 @@ def produce_outlier_table(config,mockdb,fname,na_mark='-'):
             if re.search("Best matches",column):
                 continue
             try:
-                row.append(outliers_dicts[column][sample_key])
                 if column == "Concordance":
+                    row.append("%.2f" % float(outliers_dicts[column][sample_key]))
                     best_matches = pull_five_best_concordance_matches(mockdb,sample_key)
                     formatted_matches = []
                     for match in best_matches:
-                        formatted_matches.append(str(match[0]) + " (" + str(match[1]) + ")")
+                        formatted_matches.append(str(match[0]) + " (" + "%.2f" % float(match[1]) + ")")
                     row.append("\n".join(formatted_matches))
+                elif column == "Het/Hom":
+                    row.append("%.2f" % float(outliers_dicts[column][sample_key]))
+                elif column == "Percentage\nin dbSNP":
+                    row.append("%.2f" % float(outliers_dicts[column][sample_key]))
+                else:
+                    row.append(outliers_dicts[column][sample_key])
             except KeyError:
                 row.append(na_mark)
                 if column == "Concordance":

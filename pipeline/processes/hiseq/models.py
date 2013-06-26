@@ -10,7 +10,7 @@ class SequencingRun(GenericProcess):
     to search the hiseq data directory for additional information.
     """
 
-    def __init__(self,config,key=int(-1),flowcell=None,machine=None,date='dummy',run_number='dummy',output_dir=None,complete_file=None,side='dummy',begin_timestamp=None,end_timestamp=None,operator=None,run_type=None,process_name='sequencing_run',*args,**kwargs):
+    def __init__(self,config,key=int(-1),flowcell=None,machine=None,date='dummy',run_number='dummy',output_dir=None,complete_file=None,side='dummy',begin_timestamp=None,end_timestamp=None,operator=None,run_type=None,process_name='sequencing_run',no_delete=False,*args,**kwargs):
         """
         Initializes the object.
         """
@@ -41,6 +41,7 @@ class SequencingRun(GenericProcess):
             self.complete_file = os.path.join(self.output_dir,config.get('Filenames','casava_finished'))
         else:
             self.complete_file = complete_file
+        self.no_delete = no_delete
 
     def __is_complete__(self):
         """

@@ -211,4 +211,5 @@ class ConcordanceSearch(SampleQsubProcess):
         self.fourth_concordance = return_vals[-7]
         self.fifth_match = return_vals[-10]
         self.fifth_concordance = return_vals[-9]
+        concord_search.__finish__()
         return True

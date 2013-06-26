@@ -57,13 +57,19 @@ def outlier_table_for_pdf(config,mockdb,elements,fname,na_mark='-'):
             if re.search("Best matches",column):
                 continue
             try:
-                row.append(outliers_dicts[column][sample_key])
                 if column == "Concordance":
+                    row.append("%.2f" % float(outliers_dicts[column][sample_key]))
                     best_matches = pull_five_best_concordance_matches(mockdb,sample_key)
                     formatted_matches = []
                     for match in best_matches:
-                        formatted_matches.append(str(match[0]) + " (" + str(match[1]) + ")")
+                        formatted_matches.append(str(match[0]) + " (" + "%.2f" % float(match[1]) + ")")
                     row.append("\n".join(formatted_matches))
+                elif column == "Het/Hom":
+                    row.append("%.2f" % float(outliers_dicts[column][sample_key]))
+                elif column == "Percentage\nin dbSNP":
+                    row.append("%.2f" % float(outliers_dicts[column][sample_key]))
+                else:
+                    row.append(outliers_dicts[column][sample_key])
             except KeyError:
                 row.append(na_mark)
                 if column == "Concordance":
