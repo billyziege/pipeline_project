@@ -15,7 +15,7 @@ from processes.flowcell_stats_reports.scripts import write_list_file
 from sge_email.scripts import send_email
 from reports.post_pipeline_report import produce_outlier_table
 from template.scripts import fill_template
-from reports.pdf_wrapper import outlier_table_for_pdf, add_square_images, initialize_standard_doc
+from reports.pdf_wrapping import outlier_table_for_pdf, add_square_images, initialize_standard_doc
 
 class FlowcellStatisticsReports(GenericProcess):
     """
@@ -145,7 +145,6 @@ class FlowcellStatisticsReports(GenericProcess):
                 continue
             if not report.__is_complete__(): #If the qsub script is still running, next.
                 continue
-            report.__finish__()
             if self.sequencing_run_type == 'RapidRun' and str(number) == '16':
                 recipients = config.get('Flowcell_reports','last_recipients')
                 subject, body = report.__generate_flowcell_report_text__(config,mockdb,report_type="last_report")
@@ -161,8 +160,8 @@ class FlowcellStatisticsReports(GenericProcess):
             files.append(report.report_pdf)
             files.append(report.full_report)
             files.append(report.current_report)
-
             send_email(subject,body,recipients=recipients,files=files)
+            report.__finish__()
             report.report_sent = True
         return 1
 
@@ -208,11 +207,11 @@ class FlowcellStatisticReport(QsubProcess):
         #Output files
         self.full_report = os.path.join(self.output_dir,'all_samples_report.csv')
         self.current_report = os.path.join(self.output_dir,'current_samples_report.csv')
-        self.concordance_png = os.path.join(self.output_dir,'concordance_vs_depth.png')
-        self.dbsnp_png = os.path.join(self.output_dir,'dbsnp_vs_depth.png')
-        self.greater_than_10x_png = os.path.join(self.output_dir,'greater_than_10x_vs_depth.png')
-        self.zero_coverage_png = os.path.join(self.output_dir,'zero_coverage_vs_depth.png')
-        self.hethomratio_png = os.path.join(self.output_dir,'hethomratio_vs_depth.png')
+        self.concordance_jpeg = os.path.join(self.output_dir,'concordance_vs_depth.jpeg')
+        self.dbsnp_jpeg = os.path.join(self.output_dir,'dbsnp_vs_depth.jpeg')
+        self.greater_than_10x_jpeg = os.path.join(self.output_dir,'greater_than_10x_vs_depth.jpeg')
+        self.zero_coverage_jpeg = os.path.join(self.output_dir,'zero_coverage_vs_depth.jpeg')
+        self.hethomratio_jpeg = os.path.join(self.output_dir,'hethomratio_vs_depth.jpeg')
         self.report_pdf = os.path.join(self.output_dir,self.flowcell_key + '_report.pdf')
         #Flag to keep track if report has been sent
         self.report_sent = False
@@ -243,25 +242,24 @@ class FlowcellStatisticReport(QsubProcess):
         dictionary = {}
         for k,v in self.__dict__.iteritems():
             dictionary.update({k:str(v)})
-        pdf = initialize_standard_doc(self.report_pdf)
+        pdf_report = initialize_standard_doc(self.report_pdf)
         pdf_elements = []
-        outlier_table = produce_outlier_table(config,mockdb,self.current_report)
+        outlier_table = produce_outlier_table(config,mockdb,self.current_report) + "\n"
         if outlier_table is None:
             template_subject = os.path.join(config.get('Common_directories','template'),config.get('Flowcell_reports_email_templates',report_type + '_subject'))
             template_body = os.path.join(config.get('Common_directories','template'),config.get('Flowcell_reports_email_templates',report_type + '_no_outliers_body'))
         else:
-            pdf_elments.append(outlier_table_for_pdf(config,mockdb,self.current_report))
-            dictionary.update({'outlier_table': outlier_table})
+            outlier_table_for_pdf(config,mockdb,pdf_elements,self.current_report)
             template_subject = os.path.join(config.get('Common_directories','template'),config.get('Flowcell_reports_email_templates',report_type + '_subject'))
             template_body = os.path.join(config.get('Common_directories','template'),config.get('Flowcell_reports_email_templates',report_type + '_body'))
         image_files = []
-        image_files.append(self.concordance_png)
-        image_files.append(self.hethomratio_png)
-        image_files.append(self.dbsnp_png)
-        image_files.append(self.greater_than_10x_png)
-        image_files.append(self.zero_coverage_png)
-        pdf_elements.extend(add_square_images(image_files)
-        pdf.build(pdf_elements)
+        image_files.append(self.concordance_jpeg)
+        image_files.append(self.hethomratio_jpeg)
+        image_files.append(self.dbsnp_jpeg)
+        image_files.append(self.greater_than_10x_jpeg)
+        image_files.append(self.zero_coverage_jpeg)
+        pdf_elements.extend(add_square_images(image_files))
+        pdf_report.build(pdf_elements)
         sample_keys = self.sample_keys.split(";")
         number_samples = len(sample_keys)
         dictionary.update({'number_samples': str(number_samples)})

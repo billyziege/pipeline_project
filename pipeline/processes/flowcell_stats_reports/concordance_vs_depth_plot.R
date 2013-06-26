@@ -30,6 +30,6 @@ a <- a + geom_text(data=NULL, x = 50, y = 96, label = '97', color = 'red')
 a <- a + xlab('Mean read depth')
 a <- a + ylab('Self concordance')
 
-png(args[3])
+jpeg(args[3])
 plot(a)
 dev.off()

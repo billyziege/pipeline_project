@@ -28,6 +28,6 @@ a <- a + theme(axis.text.y = element_text(size=16))
 a <- a + xlab('Mean read depth')
 a <- a + ylab('Het/Hom')
 
-png(args[3])
+jpeg(args[3])
 plot(a)
 dev.off()

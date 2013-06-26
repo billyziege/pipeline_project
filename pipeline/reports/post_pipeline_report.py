@@ -171,7 +171,7 @@ def produce_outlier_table(config,mockdb,fname,na_mark='-'):
         width.append(10)
         header.append('Mean depth')
         all_sample_keys.update(set(outliers_dicts['Mean depth'].keys()))
-    if len((outliers_dicts['Het/Hom'].keys()) > 0:
+    if len(outliers_dicts['Het/Hom'].keys()) > 0:
         halign.append('c')
         valign.append('m')
         dtype.append('f')
@@ -196,7 +196,7 @@ def produce_outlier_table(config,mockdb,fname,na_mark='-'):
         dtype.append('f')
         width.append(10)
         header.append('Percentage\nin dbSNP')
-        all_sample_keys.update(set(dbsnp_dict.keys()))
+        all_sample_keys.update(set(outliers_dicts['Percentage\nin dbSNP'].keys()))
 
     if len(all_sample_keys) < 1:
         return None
@@ -210,8 +210,10 @@ def produce_outlier_table(config,mockdb,fname,na_mark='-'):
         for column in header:
             if column == 'Sample ID':
                 continue
+            if re.search("Best matches",column):
+                continue
             try:
-                row.append(mean_depth_dict[sample_key])
+                row.append(outliers_dicts[column][sample_key])
                 if column == "Concordance":
                     best_matches = pull_five_best_concordance_matches(mockdb,sample_key)
                     formatted_matches = []
@@ -220,6 +222,8 @@ def produce_outlier_table(config,mockdb,fname,na_mark='-'):
                     row.append("\n".join(formatted_matches))
             except KeyError:
                 row.append(na_mark)
+                if column == "Concordance":
+                    row.append(na_mark)
         out_table.add_row(row)
     return out_table.draw()
 
@@ -229,7 +233,7 @@ def push_outliers_into_dicts(config,fname):
     statistics of interest.
     """
     in_table = table_reader(fname)
-    ouliers_dicts = {}
+    outliers_dicts = {}
     #Identify the outliers
     statistic = 'Mean_target_coverage'
     low, high = grab_thresholds_from_config(config,'Flowcell_reports','mean_depth_thresholds')
@@ -246,7 +250,7 @@ def push_outliers_into_dicts(config,fname):
     statistic = 'In_dbSNP'
     low, high = grab_thresholds_from_config(config,'Flowcell_reports','dbsnp_thresholds')
     dbsnp_dict = pull_outlier_samples(in_table,statistic,low_threshold=low,high_threshold=high)
-    outliers_dicts.update({'Percentage\nin dbSNP': concord_dict})
+    outliers_dicts.update({'Percentage\nin dbSNP': dbsnp_dict})
     return outliers_dicts
     
 

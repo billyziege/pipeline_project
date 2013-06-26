@@ -8,7 +8,7 @@ from email.Utils import COMMASPACE, formatdate
 from email import Encoders
 from sge_email.models import SGEEmailObject
 
-def send_email(subject,message,recipients=None,files=[]):
+def send_email(subject,message,recipients=None,files=[],add_text=None):
     sgeemail = SGEEmailObject(subject=subject,message=message,recipients=recipients)
     #fp = open(filename, 'rb')
     # Create a text/plain message
@@ -18,7 +18,10 @@ def send_email(subject,message,recipients=None,files=[]):
     msg['From'] = sgeemail.usrname + '@' + sgeemail.domain
     msg['To'] = COMMASPACE.join(sgeemail.recipients)
 
-    msg.attach( MIMEText(sgeemail.caveat + sgeemail.message + sgeemail.salutation) )
+    if add_text is None:
+        msg.attach( MIMEText(sgeemail.caveat + sgeemail.message + sgeemail.salutation) )
+    else:
+    	msg.attach( MIMEText(sgeemail.caveat + sgeemail.message + add_text + sgeemail.salutation) )
 
     for f in files:
         part = MIMEBase('application', "octet-stream")

@@ -28,6 +28,6 @@ a <- a + theme(axis.text.y = element_text(size=16))
 a <- a + xlab('Mean read depth')
 a <- a + ylab('Percentage of target bases with\nzero coverage')
 
-png(args[3])
+jpeg(args[3])
 plot(a)
 dev.off()

@@ -1,12 +1,15 @@
+import re
 from reportlab.lib.pagesizes import letter, inch
-from reportlab.platypus import SimpleDocTemplate, Spacer, Image, Table, TableStyle
-from reports.post_pipeline_reprot import push_outliers_into_dicts
+from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet
+from reports.post_pipeline_report import push_outliers_into_dicts, pull_five_best_concordance_matches
 
 def initialize_standard_doc(fname):
     """
     Wraps the SimpleDocTemplate and returns the created doc object. 
     """
-    doc = SimpleDocTemplate("fname",pagesize=letter,
+    doc = SimpleDocTemplate(fname,pagesize=letter,
               rightMargin=72,leftMargin=72,
               topMargin=72,bottomMargin=18)
     return doc
@@ -22,17 +25,17 @@ def add_square_images(image_files):
         images.append(im)
     return images
 
-def outlier_table_for_pdf(config,mockdb,fname,na_mark='-'):
+def outlier_table_for_pdf(config,mockdb,elements,fname,na_mark='-'):
     """
     Finds the samples that have stastics that are
     beyond the given threshold and makes a table of these statistics
     for the pdf doc object.
     """
-    outlier_dicts = push_outliers_into_dicts(config,fname)
+    outliers_dicts = push_outliers_into_dicts(config,fname)
     #Set up the ouput table.
     header = ['Sample ID']
     all_sample_keys = set([])
-    for column in outlier_dicts.keys():
+    for column in outliers_dicts.keys():
         if len(outliers_dicts[column].keys()) > 0:
             header.append(column)
             all_sample_keys.update(set(outliers_dicts[column].keys()))
@@ -41,15 +44,20 @@ def outlier_table_for_pdf(config,mockdb,fname,na_mark='-'):
 
     if len(all_sample_keys) < 1:
         return None
-
+    styles = getSampleStyleSheet()
+    elements.append(Spacer(8, 16))
+    elements.append(Paragraph('<font size=16>Table 1: Outlier samples and their outlying statistics.\n</font>', styles["Normal"]))
+    elements.append(Spacer(1, 8))
     data = [header]
     for sample_key in all_sample_keys:
         row = [sample_key]
         for column in header:
             if column == 'Sample ID':
                 continue
+            if re.search("Best matches",column):
+                continue
             try:
-                row.append(mean_depth_dict[sample_key])
+                row.append(outliers_dicts[column][sample_key])
                 if column == "Concordance":
                     best_matches = pull_five_best_concordance_matches(mockdb,sample_key)
                     formatted_matches = []
@@ -58,14 +66,20 @@ def outlier_table_for_pdf(config,mockdb,fname,na_mark='-'):
                     row.append("\n".join(formatted_matches))
             except KeyError:
                 row.append(na_mark)
-        data.add_row(row)
+                if column == "Concordance":
+                    row.append(na_mark)
+        data.append(row)
 
     t=Table(data)
-    t.setStyle(TableStyle([('FONT',(0,0),(-1,-1),'Times'),
-                           ('VALIGN',(0,-1),(-1,-1),'MIDDLE'),
+    t.setStyle(TableStyle([('TEXTFONT',(0,0),(-1,-1),'Times'),
+                           ('VALIGN',(0,0),(-1,-1),'MIDDLE'),
+                           ('FONTSIZE',(0,0),(-1,-1),12),
+                           ('ALIGN',(1,0),(-1,-1),'CENTER'),
                            ('BOX', (0,0), (-1,-1), 1, colors.black),
-                           ('FONT',(0,1),(0,-1),'Times-Bold'),
+                           ('TEXTFONT',(0,1),(0,-1),'Times-Bold'),
                            ('ALIGN',(0,1),(0,-1),'LEFT'),
                            ('LINEBELOW', (0,0), (-1,0), 1, colors.black)
                           ]))
-    return t
+    elements.append(t)
+    elements.append(Spacer(6, 12))
+    return 1
