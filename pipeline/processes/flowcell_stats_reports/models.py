@@ -103,9 +103,6 @@ class FlowcellStatisticsReports(GenericProcess):
         for pipeline in self.__current_pipeline_list__(mockdb):
             if not pipeline.__is_complete__():
                 return False
-        #Add samples to the all sample list
-        sample_keys = self.__completed_samples_list__(mockdb)
-        write_list_file(sample_keys,config.get('Filenames','all_samples'),original_list_file=config.get('Filenames','all_samples'))
         return True
 
     def __generate_reports__(self,config,mockdb):
@@ -148,10 +145,16 @@ class FlowcellStatisticsReports(GenericProcess):
             if self.sequencing_run_type == 'RapidRun' and str(number) == '16':
                 recipients = config.get('Flowcell_reports','last_recipients')
                 subject, body = report.__generate_flowcell_report_text__(config,mockdb,report_type="last_report")
+                #Add samples to the all sample list
+                sample_keys = self.__completed_samples_list__(mockdb)
+                write_list_file(sample_keys,config.get('Filenames','all_samples'),original_list_file=config.get('Filenames','all_samples'))
                 self.__finish__()
             elif self.sequencing_run_type == 'HighThroughputRun' and str(number) == '64':
                 recipients = config.get('Flowcell_reports','last_recipients')
                 subject, body = report.__generate_flowcell_report_text__(config,mockdb,report_type="last_report")
+                #Add samples to the all sample list
+                sample_keys = self.__completed_samples_list__(mockdb)
+                write_list_file(sample_keys,config.get('Filenames','all_samples'),original_list_file=config.get('Filenames','all_samples'))
                 self.__finish__()
             else:
                 recipients = config.get('Flowcell_reports','subset_recipients')
@@ -244,11 +247,12 @@ class FlowcellStatisticReport(QsubProcess):
             dictionary.update({k:str(v)})
         pdf_report = initialize_standard_doc(self.report_pdf)
         pdf_elements = []
-        outlier_table = produce_outlier_table(config,mockdb,self.current_report) + "\n"
+        outlier_table = produce_outlier_table(config,mockdb,self.current_report)
         if outlier_table is None:
             template_subject = os.path.join(config.get('Common_directories','template'),config.get('Flowcell_reports_email_templates',report_type + '_subject'))
             template_body = os.path.join(config.get('Common_directories','template'),config.get('Flowcell_reports_email_templates',report_type + '_no_outliers_body'))
         else:
+            outlier_table += "\n"
             outlier_table_for_pdf(config,mockdb,pdf_elements,self.current_report)
             template_subject = os.path.join(config.get('Common_directories','template'),config.get('Flowcell_reports_email_templates',report_type + '_subject'))
             template_body = os.path.join(config.get('Common_directories','template'),config.get('Flowcell_reports_email_templates',report_type + '_body'))
