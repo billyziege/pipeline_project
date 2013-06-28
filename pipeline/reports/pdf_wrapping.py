@@ -67,18 +67,18 @@ def outlier_table_for_pdf(config,mockdb,elements,fname,na_mark='-'):
                     for match in best_matches:
                         try:
                             formatted_matches.append(str(match[0]) + " (" + "%.2f" % float(match[1]) + ")")
-                        except ValueError:
+                        except:
                             formatted_matches.append(str(match[0]) + " (" + str(match[1]) + ")")
                     row.append("\n".join(formatted_matches))
                 elif column == "Het/Hom":
                     try:
                         row.append("%.2f" % float(outliers_dicts[column][sample_key]))
-                    except ValueError:
+                    except:
                         row.append(outliers_dicts[column][sample_key])
                 elif column == "Percentage\nin dbSNP":
                     try:
                         row.append("%.2f" % float(outliers_dicts[column][sample_key]))
-                    except ValueError:
+                    except:
                         row.append(outliers_dicts[column][sample_key])
                 else:
                     row.append(outliers_dicts[column][sample_key])

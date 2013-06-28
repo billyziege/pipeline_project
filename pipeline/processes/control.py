@@ -8,6 +8,7 @@ from processes.hiseq.sequencing_run import determine_run_type
 from processes.transitions import things_to_do_if_zcat_complete, things_to_do_if_bcbio_complete, things_to_do_if_starting_pipeline
 from processes.transitions import things_to_do_if_sequencing_run_is_complete, things_to_do_if_snps_called
 from processes.transitions import things_to_do_if_bcbio_cleaning_complete, things_to_do_for_reports_object
+from processes.transitions import things_to_do_if_snp_stats_complete
 from processes.parsing import parse_sequencing_run_dir
 
 def maintain_sequencing_run_objects(config,mockdb):
@@ -156,7 +157,7 @@ def advance_running_qc_pipeline(config,storage_devices,pipeline,mockdb):
         snp_stats = mockdb['SnpStats'].__get__(config,int(pipeline.snp_stats_key))
         if bcbio.__is_complete__(config) and snp_stats.__is_complete__(config,mockdb):
             things_to_do_if_bcbio_complete(config,mockdb,pipeline,bcbio)
-            snp_stats.__finish__()
+            things_to_do_if_snp_stats_complete(config,mockdb,pipeline,snp_stats)
         return 1
     clean_bcbio = mockdb['CleanBcbio'].__get__(config,int(pipeline.cleaning_key))
     if clean_bcbio.__is_complete__():

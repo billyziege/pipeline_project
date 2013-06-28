@@ -5,6 +5,8 @@ from processes.hiseq.scripts import list_monitoring_dirs, list_sample_dirs
 from processes.hiseq.sequencing_run import determine_run_type
 from manage_storage.scripts import identify_running_location_with_most_currently_available
 from demultiplex_stats.fill_demultiplex_stats import fill_demultiplex_stats
+from processes.snp_stats.extract_stats import store_snp_stats_in_db, store_search_stats_in_db
+from processes.pipeline.extract_stats import store_stats_in_db
 
 def things_to_do_if_zcat_complete(config,mockdb,pipeline,zcat):
     zcat.__finish__()
@@ -20,6 +22,7 @@ def things_to_do_if_zcat_complete(config,mockdb,pipeline,zcat):
 
 def things_to_do_if_bcbio_complete(config,mockdb,pipeline,bcbio):
     bcbio.__finish__()
+    store_stats_in_db(bcbio)
     sample = mockdb['Sample'].__get__(config,pipeline.sample_key)
     clean_bcbio = mockdb['CleanBcbio'].__new__(config,sample=sample,input_dir=bcbio.output_dir,output_dir=pipeline.output_dir,process_name='clean')
     clean_bcbio.__fill_qsub_file__(config)
@@ -27,9 +30,19 @@ def things_to_do_if_bcbio_complete(config,mockdb,pipeline,bcbio):
     pipeline.cleaning_key = clean_bcbio.key
     return 1
 
+def things_to_do_if_snp_stats_complete(config,mockdb,pipeline,snp_stats):
+    store_snp_stats_in_db(snp_stats)
+    snp_stats.__finish__()
+    if snp_stats.search_key is None:
+        return 1
+    search = mockdb['ConcordanceSearch'].__get__(config,snp_stats.search_key)
+    store_search_stats_in_db(search)
+    search.finish()
+    return 1
+
 def things_to_do_if_bcbio_cleaning_complete(storage_devices,mockdb,pipeline,clean_bcbio):
-    clean_bcbio.__finish__()
     pipeline.__finish__(storage_device=storage_devices[pipeline.running_location])
+    clean_bcbio.__finish__()
     return 1
 
 def things_to_do_if_bcbio_cleaning_complete(storage_devices,mockdb,pipeline,clean_bcbio):

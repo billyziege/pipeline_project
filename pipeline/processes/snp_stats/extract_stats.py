@@ -66,6 +66,19 @@ def store_snp_stats_in_db(snp_stats,directory=None):
         hetthom_path = os.path.join(hethom_dir,hethom_name)
         snp_stats.hom, snp_stats.het, snp_stats.variants_total, snp_stats.hethom_ratio = grab_hethom_stats(hethom_path)
 
+def store_search_stats_in_db(concord_search):
+    return_vals = grab_search_stats(self.output_path)
+    concord_search.first_match = return_vals[-2]
+    concord_search.first_concordance = return_vals[-1]
+    concord_search.second_match = return_vals[-4]
+    concord_search.second_concordance = return_vals[-3]
+    concord_search.third_match = return_vals[-6]
+    concord_search.third_concordance = return_vals[-5]
+    concord_search.fourth_match = return_vals[-8]
+    concord_search.fourth_concordance = return_vals[-7]
+    concord_search.fifth_match = return_vals[-10]
+    concord_search.fifth_concordance = return_vals[-9]
+    return 1
 
 if __name__ == '__main__':
     #Handle arguments

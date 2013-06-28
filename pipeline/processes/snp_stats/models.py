@@ -202,16 +202,4 @@ class ConcordanceSearch(SampleQsubProcess):
             return True
         elif not os.path.isfile(self.complete_file):
             return False
-        return_vals = grab_search_stats(self.output_path)
-        self.first_match = return_vals[-2]
-        self.first_concordance = return_vals[-1]
-        self.second_match = return_vals[-4]
-        self.second_concordance = return_vals[-3]
-        self.third_match = return_vals[-6]
-        self.third_concordance = return_vals[-5]
-        self.fourth_match = return_vals[-8]
-        self.fourth_concordance = return_vals[-7]
-        self.fifth_match = return_vals[-10]
-        self.fifth_concordance = return_vals[-9]
-        self.__finish__()
         return True
