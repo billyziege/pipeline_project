@@ -45,11 +45,6 @@ def things_to_do_if_bcbio_cleaning_complete(storage_devices,mockdb,pipeline,clea
     clean_bcbio.__finish__()
     return 1
 
-def things_to_do_if_bcbio_cleaning_complete(storage_devices,mockdb,pipeline,clean_bcbio):
-    clean_bcbio.__finish__()
-    pipeline.__finish__(storage_device=storage_devices[pipeline.running_location])
-    return 1
-
 def things_to_do_if_starting_pipeline(config,mockdb,pipeline):
     sample = mockdb['Sample'].__get__(config,pipeline.sample_key)
     base_output_dir = config.get(pipeline.running_location+'_directories','bcbio_output')
