@@ -65,3 +65,15 @@ class Zcat(SampleQsubProcess):
             body = fill_template(template_body, dictionary)
             send_email(subject,body)
         return True
+
+    def __launch__(self,config,node_list=None):
+        """
+        Checks to make sure there is enough storage.  If
+        not, sends email.  If so, sends the job to SGE and 
+        records pertinent information.
+        """
+        if node_list is None:
+            node_list = config.get('Zcat','nodes')
+        SampleQsubProcess.__launch__(self,config,node_list=node_list,queue_name='single')
+        return True
+
