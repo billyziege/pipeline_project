@@ -4,7 +4,7 @@ import sys
 import subprocess
 import argparse
 #Dirs storing affy calls
-SAMPLE_LIST_DIRS=['/mnt/iscsi_space/zerbeb/affy_samples/msbp','/mnt/iscsi_space/zerbeb/affy_samples/GERA']#,'/mnt/coldstorage/open-transfers/affy_samples/GO']
+SAMPLE_LIST_DIRS='/mnt/iscsi_space/zerbeb/affy_samples/msbp,/mnt/iscsi_space/zerbeb/affy_samples/GERA,/mnt/coldstorage/open-transfers/affy_samples/GO'
 
 #Perl scripts
 EXTRACT_SAMPLE_SCRIPT='/mnt/iscsi_space/zerbeb/qc_pipeline_project/qc_pipeline/processes/snp_stats/extract_sample_list.pl'
@@ -24,13 +24,14 @@ def text_to_file(string,fname,directory=os.getcwd()):
         f.write(string)
     return out_file
 
-def find_sample_in_lists(sample_key):
+def find_sample_in_lists(sample_key,sample_list_dirs=SAMPLE_LIST_DIRS):
     """
     The preprocessed list of samples in the affy call files
     is searched for the sample key.  The first file containing 
     the sample key is returned.
     """
-    for directory in SAMPLE_LIST_DIRS:
+    dirs = sample_list_dirs.split(',')
+    for directory in dirs:
         for fname in os.listdir(directory):
             if os.path.isfile(os.path.join(directory,fname)):
                 if re.search("_samples.txt$",fname):
@@ -45,13 +46,14 @@ def find_sample_in_lists(sample_key):
                         return  directory, number, sample_dict[sample_key]
     raise Exception("Sample {0} not in lists.".format(sample_key))
 
-def grab_affy_sample_genotypes_file(sample_key):
+def grab_affy_sample_genotypes_file(sample_key,sample_list_dirs=SAMPLE_LIST_DIRS):
     """
     The preprocessed affy genotypes are named by the sample key.
     The function looks in the appropriate directories for the
     file with the genotype calls.
     """
-    for directory in SAMPLE_LIST_DIRS:
+    dirs = sample_list_dirs.split(',')
+    for directory in dirs:
         fname = os.path.join(directory,sample_key + ".geno")
         if os.path.isfile(fname):
             return fname
@@ -155,14 +157,15 @@ def read_genotype_calls(fname):
     with open(fname,'r') as f:
        for line in f: 
            columns = line.rstrip().split("\t")
+           chr = columns[0].lstrip('chr')
            try:
-               calls[columns[0]]
+               calls[chr]
            except:
-               calls[columns[0]] = {}
+               calls[chr] = {}
            try:
-               calls[columns[0]].update({columns[1]:alphabetize_call(columns[2])})
+               calls[chr].update({columns[1]:alphabetize_call(columns[2])})
            except:
-               calls[columns[0]].update({columns[1]:alphabetize_call(columns[2])})
+               calls[chr].update({columns[1]:alphabetize_call(columns[2])})
     return calls
 
 def alphabetize_call(call):
@@ -209,6 +212,8 @@ if __name__ == '__main__':
     parser.add_argument('--search_file', dest='search_file', type=str, default=None, help='This finds the concordance of given sample against all of the files listed in file specified by the search file flag.  Without this flag, the program only looks for a single file (corresponding to sample)')
     parser.add_argument('--vcf_conversion_script', dest='vcf_conversion_script', type=str, default=VCF_CONVERSION_SCRIPT, help='The script that converts a vcf file format into quickly comparable format.')
     parser.add_argument('--loci_filter', dest='filter', type=str, default=FILTER_FILE, help='The bed file detailing the loci on which the vcf should be filtered.')
+    parser.add_argument('--sample_list_dirs', dest='sample_list_dirs', type=str, default=SAMPLE_LIST_DIRS, help='The comma separated list of directories where the geno files can be found.')
+    parser.add_argument('-n','--no_check_sample_name', dest='check_sample_name', action='store_false', default=True,help='Turns off the checks the name of the sample against the expectation for the MSBP project.')
     args = parser.parse_args()
     if args.sample is None:
         directory, filename = os.path.split(args.vcf_file)
@@ -226,11 +231,14 @@ if __name__ == '__main__':
             args.output_dir = os.getcwd()
         else:
             args.output_dir = vcf_directory
-    
-    sample_key = ensure_sample_format(args.sample)
+    print(args.check_sample_name)
+    if args.check_sample_name is True:
+      sample_key = ensure_sample_format(args.sample)
+    else:
+      sample_key = args.sample
     pipeline_geno_file = convert_variants_form(args.vcf_file,sample_key,script=args.vcf_conversion_script,filter=args.filter)
     if args.search_file is None:
-        affy_geno_file = grab_affy_sample_genotypes_file(sample_key)
+        affy_geno_file = grab_affy_sample_genotypes_file(sample_key,sample_list_dirs=args.sample_list_dirs)
         report = report_concordance(affy_geno_file,pipeline_geno_file)
         with open(os.path.join(args.output_dir,args.output_file),'w') as f:
             f.write("same\ttotal\tpercentage\tformat\terrors\n")

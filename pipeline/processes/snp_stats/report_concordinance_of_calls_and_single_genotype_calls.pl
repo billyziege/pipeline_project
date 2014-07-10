@@ -79,6 +79,7 @@ sub read_genotype_calls
     {
         chomp;
         my ($chr,$pos,@calls) = split(/\t/);
+        $chr =~ s/chr//;
         foreach my $i (0..$#calls)
         {
             $hash->{$chr}{$pos} = &alphabetize_calls($calls[$i]);

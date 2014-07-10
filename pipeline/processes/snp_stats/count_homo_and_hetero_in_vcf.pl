@@ -81,6 +81,7 @@ sub get_alphabetized_alleles
         my @vals = split(/:/,$individuals[$ind]);
         my $calls = $vals[$gt_index];
         my @cs = split(/\//,$calls);
+        if ($#cs == 0) { next;} #Skip if hemizygous
         my @as;
         $as[0] = &translate_call($cs[0],$ref,$alt);
         $as[1] = &translate_call($cs[1],$ref,$alt);

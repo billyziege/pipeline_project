@@ -15,38 +15,57 @@ def post_pipeline_report(mockdb,sample_list):
               "Percentage_of_reads_aligned","Percentage_of_read_duplicates","Insert_size",
               "Percentage_of_reads_on_target_bases","Mean_target_coverage",
               "Percentage_of_reads_with_at_least_10x_coverage_targets",
-              "Percentage_of_reads_with_zero_coverage_targets","Total_variations","In_dbSNP",
-              "Transition/Transversion_(all)","Transition/Transversion_(dbSNP)",
-              "Transition/Transversion_(novel)","Heterozygous/Homozygous"
+              #"Percentage_of_reads_with_zero_coverage_targets","Total_variations","In_dbSNP",
+              "Percentage_of_reads_with_zero_coverage_targets","In_dbSNP",
+              #"Heterozygous/Homozygous","Picard_in_dbSNP",
+              "Heterozygous/Homozygous"
+             # "Transition/Transversion_(all)","Transition/Transversion_(dbSNP)",
+             # "Transition/Transversion_(novel)"
              ]
     print sep.join(header)
     for sample_key in sample_list:
+        #try:
         out_line = prepare_pipeline_report_line(mockdb,sample_key,sep)
         print out_line
+        #except:
+        #    print sample_key + " failed"
     return 1
 
 def prepare_pipeline_report_line(mockdb,sample_key,sep=','):
     #Get the objects
-    sample = mockdb['Sample'].objects[sample_key]
-    sample_barcode_dict = mockdb['Barcode'].__attribute_value_to_object_dict__('sample_key')
     try:
-        barcode = sample_barcode_dict[sample_key][0]
+        sample = mockdb['Sample'].objects[sample_key]
     except KeyError:
         pieces = sample_key.split('-')
         sample_key2 = pieces[0] + '-' + pieces[1] + '_' + pieces[2]
         #sys.stderr.write("%s\n" % sample_key2)
-        barcode = sample_barcode_dict[sample_key2][0]
+        sample = mockdb['Sample'].objects[sample_key2]
+    sample_barcode_dict = mockdb['Barcode'].__attribute_value_to_object_dict__('sample_key')
+    try:
+      barcode = sample_barcode_dict[sample.key][0]
+    except KeyError:
+      pieces = sample_key.split('-')
+      sample_key2 = pieces[0] + '-' + pieces[1] + '_' + pieces[2]
+      barcode = sample_barcode_dict[sample_key2][0]
     lane = mockdb['Lane'].objects[barcode.lane_key]
     flowcell = mockdb['Flowcell'].objects[lane.flowcell_key]
     flowcell_seq_run_dict = mockdb['SequencingRun'].__attribute_value_to_object_dict__('flowcell_key')
-    seq_run = flowcell_seq_run_dict[flowcell.key][0]
+    try:
+        seq_run = flowcell_seq_run_dict[flowcell.key][0]
+    except:
+        seq_run = None
     #Get the process objects
     sample_qcpipeline_dict = mockdb['QualityControlPipeline'].__attribute_value_to_object_dict__('sample_key')
     sample_stdpipeline_dict = mockdb['StandardPipeline'].__attribute_value_to_object_dict__('sample_key')
     try:
-        pipeline = sample_qcpipeline_dict[sample_key][0]
+        pipeline = sample_qcpipeline_dict[sample.key][0]
     except KeyError:
-        pipeline = sample_stdpipeline_dict[sample_key][0]
+        try:
+          pipeline = sample_stdpipeline_dict[sample.key][0]
+        except KeyError:
+          pieces = sample_key.split('-')
+          sample_key2 = pieces[0] + '-' + pieces[1] + '_' + pieces[2]
+          pipeline = sample_qcpipeline_dict[sample_key2][0]
     zcat = mockdb['Zcat'].objects[pipeline.zcat_key]
     bcbio = mockdb['Bcbio'].objects[pipeline.bcbio_key]
     if pipeline.__class__.__name__ == 'QualityControlPipeline':
@@ -54,24 +73,41 @@ def prepare_pipeline_report_line(mockdb,sample_key,sep=','):
         #snp_stats = mockdb['SnpStats'].__new__(config,sample=sample,bcbio=bcbio)
         #else:
         #sample_snp_stats_dict = mockdb['SnpStats'].__attribute_value_to_object_dict__('sample_key')
-        snp_stats = mockdb['SnpStats'].objects[pipeline.snp_stats_key]
+        try:
+            snp_stats = mockdb['SnpStats'].objects[pipeline.snp_stats_key]
+            if snp_stats.search_key is None:
+                search = None
+            else:
+                search = mockdb['ConcordanceSearch'].objects[snp_stats.search_key]
+        except:
+            snp_stats = None
+            search = None
         #snp_stats = sample_snp_stats_dict[sample_key][0]
         #pipeline.snp_stats_key = snp_stats.key
-        if snp_stats.search_key is None:
-            search = None
-        else:
-            search = mockdb['ConcordanceSearch'].objects[snp_stats.search_key]
     #Insert the data
     line = [sample_key]
-    line += [seq_run.date]
+    if seq_run is None:
+        line += [""]
+    else:
+        line += [seq_run.date]
     line += [barcode.index]
     line += [lane.number]
     line += [flowcell.key]
-    line += [seq_run.machine_key]
-    line += [barcode.reads]
+    if seq_run is None:
+        line += [""]
+    else:
+        line += [seq_run.machine_key]
+    if barcode.reads is None:
+        line += [bcbio.total_reads]
+    else:
+        line += [barcode.reads]
     if pipeline.__class__.__name__ == 'QualityControlPipeline':
-        line += [snp_stats.percentage_concordance]
-        line += [snp_stats.concordance_calls]
+        if not snp_stats is None:
+            line += [snp_stats.percentage_concordance]
+            line += [snp_stats.concordance_calls]
+        else:
+            line +=['NA']
+            line +=['NA']
         if search is None:
             line += ['NA']
         else:
@@ -83,13 +119,18 @@ def prepare_pipeline_report_line(mockdb,sample_key,sep=','):
     line += [bcbio.mean_target_coverage]
     line += [bcbio.percentage_with_at_least_10x_coverage]
     line += [bcbio.percentage_0x_coverage]
-    line += [bcbio.total_variations]
-    line += [bcbio.percentage_in_db_snp]
-    line += [bcbio.titv_all]
-    line += [bcbio.titv_dbsnp]
-    line += [bcbio.titv_novel]
+    #line += [bcbio.total_variations]
     if pipeline.__class__.__name__ == 'QualityControlPipeline':
-        line += [snp_stats.hethom_ratio]
+        if not snp_stats is None:
+            line += [snp_stats.in_dbsnp]
+            line += [snp_stats.hethom_ratio]
+        else:
+            line +=['NA']
+            line +=['NA']
+    #line += [bcbio.percentage_in_db_snp]
+    #line += [bcbio.titv_all]
+    #line += [bcbio.titv_dbsnp]
+    #line += [bcbio.titv_novel]
     line2 = []
     for element in line:
         if element is None:
@@ -281,11 +322,13 @@ if __name__ == "__main__":
     parser.add_argument('input', type=str, help='A file with a list of samples (one per line) for the main function.  A report file for the test_outlier_table function')
     parser.add_argument('--test_outlier_table', dest='test_outlier_table', action='store_true', default=False, help='Coops the script to test the outlier table function.')
     args = parser.parse_args()
-    config = ConfigParser.ConfigParser()
-    config.read('/mnt/iscsi_space/zerbeb/pipeline_project/pipeline/config/qc.cfg')
-    mockdb = initiate_mockdb(config)
+    system_config = ConfigParser.ConfigParser()
+    system_config.read('/home/sequencing/src/pipeline_project/pipeline/config/ihg_system.cfg')
+    pipeline_config = ConfigParser.ConfigParser()
+    pipeline_config.read('/home/sequencing/src/pipeline_project/pipeline/config/qc_on_ihg.cfg')
+    mockdb = initiate_mockdb(system_config)
     if args.test_outlier_table is True:
-        print produce_outlier_table(config,mockdb,args.input)
+        print produce_outlier_table(system_config,mockdb,args.input)
     else:
         with open(args.input,"r") as f:
             samples = [line.strip() for line in f]

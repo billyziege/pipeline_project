@@ -1,7 +1,5 @@
 import re
 import os
-from processes.models import GenericProcess
-from mockdb.models import FormattingError
 
 #This funciton insures the appropriate name when reading in a sample.
 def translate_sample_name(orig_sample_name):
@@ -20,14 +18,15 @@ def translate_sample_name(orig_sample_name):
             return form
         else:
             try:
+                sample_name.replace(" ","_");
                 int(sample_name[0])
                 sample_name = "Sample_" + str(sample_name)
             except:
                 pass
             return sample_name
-            #raise FormattingError('The sample name matches no none samples')
     else:
         try:
+            sample_name.replace(" ","_");
             int(sample_name[0])
             sample_name = "Sample_" + str(sample_name)
         except:
@@ -47,6 +46,10 @@ def list_sample_dirs(directory):
     for root, dirs, files in os.walk(directory):
         for f in files:
             if f == 'SampleSheet.csv':
-                if re.search("Project",root):	
-                    sample_dirs.extend([root])
+                if (re.search('Undetermine', root)):
+                    continue
+                with open(os.path.join(root,f),'r') as handle:
+                    if len(handle.readlines()) > 3:
+                        continue 
+                sample_dirs.extend([root])
     return sample_dirs

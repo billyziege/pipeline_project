@@ -13,7 +13,7 @@ class SnpStats(SampleQsubProcess):
     is a sub-process of bcbio.  It run concordance and hethom ratio generating scripts.
     """
 
-    def __init__(self,config,key=int(-1),sample=None,bcbio=None,concordance_filename=None,hethom_filename=None,process_name='snp_stats',**kwargs):
+    def __init__(self,config,key=int(-1),sample=None,bcbio=None,concordance_filename=None,hethom_filename=None,indbsnp_filename=None,process_name='snp_stats',**kwargs):
         """
         Initializes the snp stats process.
         """
@@ -31,6 +31,9 @@ class SnpStats(SampleQsubProcess):
         if hethom_filename is None:
             hethom_filename = self.sample_key + ".hethom"
         self.hethom_path = os.path.join(self.output_dir,hethom_filename)
+        if indbsnp_filename is None:
+            indbsnp_filename = self.sample_key + ".indbsnp"
+        self.indbsnp_path = os.path.join(self.output_dir,indbsnp_filename)
         #Stats for this process
         self.concordance_calls = None
         self.percentage_concordance = None
@@ -38,23 +41,24 @@ class SnpStats(SampleQsubProcess):
         self.het = None
         self.variants_total = None
         self.hethom_ratio = None
+        self.in_dbsnp = None
         self.search_key = None
 
-    def __fill_qsub_file__(self,config):
+    def __fill_qsub_file__(self,configs):
         """
         Since some of the information for the qsub file is pulled from the config file,
         this finds that information and writes out the qsub file. 
         """
-        template_file= os.path.join(config.get('Common_directories','template'),config.get('Template_files','snp_stats'))
+        template_file= os.path.join(configs['system'].get('Common_directories','template'),configs['pipeline'].get('Template_files','snp_stats'))
         dictionary = {}
         for k,v in self.__dict__.iteritems():
             dictionary.update({k:str(v)})
-        dictionary.update({'vcf_conversion_script':config.get('Concordance','vcf_conversion_script')})
-        dictionary.update({'filter_file':config.get('Filenames','snp_filter_file')})
+        dictionary.update({'vcf_conversion_script':configs['pipeline'].get('Concordance','vcf_conversion_script')})
+        dictionary.update({'filter_file':configs['pipeline'].get('Filenames','snp_filter_file')})
         with open(self.qsub_file,'w') as f:
             f.write(fill_template(template_file,dictionary))
 
-    def __is_complete__(self,config,mockdb):
+    def __is_complete__(self,configs,mockdb):
         """
         Since concordance search is an optional sub-process, this function checks for
         both the completeness of the self concordance program and the necessity,
@@ -66,27 +70,27 @@ class SnpStats(SampleQsubProcess):
         elif not os.path.isfile(self.complete_file):
             return False
         store_snp_stats_in_db(self)
-        if self.percentage_concordance > config.get('Concordance','threshold'):
+        if self.percentage_concordance > configs['pipeline'].get('Concordance','threshold'):
             self.__finish__()
             return True
         #If the concordance is below the threshold, we need to conduct a concordance search against the database
         #First we split the search across processors
         if self.search_key is None:
             sample = mockdb['Sample'].objects[self.sample_key]
-            concord_search = mockdb['ConcordanceSearch'].__new__(config,sample=sample,snp_stats=self)
+            concord_search = mockdb['ConcordanceSearch'].__new__(configs['system'],sample=sample,snp_stats=self)
             self.search_key = concord_search.key
-            concord_search.__launch_split_searches__(config)
+            concord_search.__launch_split_searches__(configs)
             return False
         concord_search = mockdb['ConcordanceSearch'].objects[self.search_key]
-        if concord_search.__is_complete__(config):
+        if concord_search.__is_complete__(configs['system']):
             self.__finish__()
             return True
         #Now we gather
-        if concord_search.__are_split_searches_complete__(config):
+        if concord_search.__are_split_searches_complete__(configs['pipeline']):
             if os.path.isfile(concord_search.qsub_file):
                 return False
-            concord_search.__fill_qsub_file__(config)
-            concord_search.__launch__(config)
+            concord_search.__fill_qsub_file__(configs)
+            concord_search.__launch__(configs['system'])
             return False
         return False
 
@@ -124,12 +128,12 @@ class ConcordanceSearch(SampleQsubProcess):
             output_filename = self.sample_key + "_all.con"
         self.output_path = os.path.join(self.output_dir,output_filename)
 
-    def __fill_sub_qsub_files__(self,config):
+    def __fill_sub_qsub_files__(self,configs):
         """
         This handles scattering the search across nodes.
         """
-        template_file= os.path.join(config.get('Common_directories','template'),config.get('Template_files','individual_search'))
-        list_files = config.get('Concordance','split_lists').split(',')
+        template_file= os.path.join(configs['system'].get('Common_directories','template'),configs['pipeline'].get('Template_files','individual_search'))
+        list_files = configs['pipeline'].get('Concordance','split_lists').split(',')
         dictionary = {}
         for k,v in self.__dict__.iteritems():
             dictionary.update({k:str(v)})
@@ -141,18 +145,18 @@ class ConcordanceSearch(SampleQsubProcess):
             dictionary.update({'search_list':list_file})
             dictionary.update({'output_file':output_file}) #Overwrites the object's output file (not saved)
             dictionary.update({'complete_file':complete_file}) #Overwrites the object's complete file (not saved)
-            dictionary.update({'vcf_conversion_script':config.get('Concordance','vcf_conversion_script')})
-            dictionary.update({'filter_file':config.get('Filenames','snp_filter_file')})
+            dictionary.update({'vcf_conversion_script':configs['pipeline'].get('Concordance','vcf_conversion_script')})
+            dictionary.update({'filter_file':configs['pipeline'].get('Filenames','snp_filter_file')})
             with open(qsub_file,'w') as f:
                 f.write(fill_template(template_file,dictionary))
 
-    def __fill_qsub_file__(self,config):
+    def __fill_qsub_file__(self,configs):
         """
         This handles the qsub file which gathers the results of the scattered
         processes.
         """
-        template_file= os.path.join(config.get('Common_directories','template'),config.get('Template_files','concord_search'))
-        list_files = config.get('Concordance','split_lists').split(',')
+        template_file= os.path.join(configs['system'].get('Common_directories','template'),configs['pipeline'].get('Template_files','concord_search'))
+        list_files = configs['pipeline'].get('Concordance','split_lists').split(',')
         dictionary = {}
         for k,v in self.__dict__.iteritems():
             dictionary.update({k:str(v)})
@@ -165,16 +169,16 @@ class ConcordanceSearch(SampleQsubProcess):
         with open(self.qsub_file,'w') as f:
             f.write(fill_template(template_file,dictionary))
 
-    def __launch_split_searches__(self,config):
+    def __launch_split_searches__(self,configs):
         """
         This launches the scattering processes.
         """
-        self.__fill_sub_qsub_files__(config)
-        list_files = config.get('Concordance','split_lists').split(',')
+        self.__fill_sub_qsub_files__(configs)
+        list_files = configs['pipeline'].get('Concordance','split_lists').split(',')
         for list_file in list_files:
             name = re.sub('.ls','',os.path.basename(list_file))
             qsub_file = self.sub_qsub_file_front + name + '.sh'
-            self.__launch__(config,qsub_file=qsub_file)
+            self.__launch__(configs['system'],qsub_file=qsub_file)
 
     def  __are_split_searches_complete__(self,config):
         """

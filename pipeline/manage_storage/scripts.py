@@ -27,7 +27,10 @@ def add_pipeline_running_storage(config,storage_devices,mockdb,pipeline_name):
     try:
         for pipeline in state_dict['Running']:
             currently_used = storage_currently_used_by_pipeline(config,mockdb,pipeline)
-            additional_needed = int(pipeline.storage_needed) - int(currently_used)
+            if pipeline.storage_needed is None:
+                additional_needed = 0
+            else:
+                additional_needed = int(pipeline.storage_needed) - int(currently_used)
             if additional_needed < buffer_storage:
                 storage_devices[pipeline.running_location].my_use += buffer_storage
             else:
@@ -50,13 +53,13 @@ def add_backup_running_storage(config,storage_devices,mockdb,backup_name):
         pass
     return 1
 
-def add_waiting_storage(config,storage_devices,mockdb):
+def add_waiting_storage(config,storage_devices,mockdb,pipeline_name):
     """
     This keeps track of how much storage is currently required for Initiated jobs
     assigned to a processing location but that have been prevented from running due
     to space concerns. 
     """
-    state_dict = mockdb['QualityControlPipeline'].__attribute_value_to_object_dict__('state')
+    state_dict = mockdb[pipeline_name].__attribute_value_to_object_dict__('state')
     needed_storage = int(config.get('Storage','needed'))
     try:
         for pipeline in state_dict['Initialized']:
@@ -78,15 +81,15 @@ def storage_currently_used_by_pipeline(config,mockdb,pipeline):
         return disk_usage(zcat.output_dir)
     return 0
 
-def identify_running_location_with_most_currently_available(config,storage_devices):
+def identify_running_location_with_most_currently_available(configs,storage_devices):
     """
     Returns the device from the list of available devices that
     has the most available storage.
     """
     best_location = None
     largest_available = None
-    needed_storage = int(config.get('Storage','needed'))
-    for location in config.get('Location_options','list').split(','):
+    needed_storage = int(configs['pipeline'].get('Storage','needed'))
+    for location in configs['system'].get('Location_options','list').split(','):
         storage_device = storage_devices[location]
         current_available = storage_device.available - storage_device.waiting
         if best_location == None:
@@ -108,9 +111,6 @@ def initiate_storage_devices(config):
     storage_devices = {}
     for name, directory in location_dirs.iteritems():
         storage_devices.update({name:StorageDevice(directory=directory,name=name,limit=config.get('Storage','limit'))})
-    backup_dir = config.get("Backup","dir")
-    name = config.get("Backup","dir_name")
-    storage_devices.update({name:StorageDevice(directory=directory,name=name)})
     return storage_devices
 
 

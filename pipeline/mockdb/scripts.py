@@ -17,7 +17,7 @@ def class_to_dir(cls):
 
 def extract_db_keys(db_fname, sep=','):
     """
-    Extracts the first line of a db, which the header.
+    Extracts the first line of a db, which is the header.
     """
     if not os.path.isfile(db_fname):
         return []
@@ -35,3 +35,11 @@ def db_file_name(progenitor_cls, cls, base_dir):
     db_fname = db_dir + '/' + class_to_dir(cls) + ".db"
     return db_fname
 
+def translate_underscores_to_capitals(name):
+    """
+    Depending on the convention, a db file may be referred to as something like
+    object_name or ObjectName.  This converts from the former to the latter.
+    """
+    pieces = name.split("_")
+    capital_pieces = [x[0:1].upper() + x[1:] for x in pieces]
+    return "".join(capital_pieces)

@@ -9,4 +9,5 @@ def write_list_file(input_list,output_file,original_list_file=None,sort=True):
         output_list.sort()
     with open(output_file,'w') as f:
         f.write("\n".join(output_list))
+        f.write("\n")
     return 1

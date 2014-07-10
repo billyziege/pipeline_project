@@ -23,6 +23,7 @@ while (<IN>)
     my $ref = $columns[$ref_index];
     next unless ( (length($alt) == 1) && (length($ref) == 1) );
     my $chr = $columns[$chr_index];
+    $chr =~ s/chr//;
     my $pos = $columns[$pos_index];
     if (defined($filter_positions->{$chr}{$pos}))
     {

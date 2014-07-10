@@ -4,6 +4,9 @@ import subprocess
 def disk_available(path):
     df = subprocess.Popen(["df", path], stdout=subprocess.PIPE)
     output = df.stdout.read()
+    report = output.split("\n")[1].split()
+    if len(report) > 1:
+        return report[1]
     report = output.split("\n")[2].split()
     return report[0]
 
@@ -14,4 +17,4 @@ def disk_usage(path):
     return result[0]
 
 if __name__ == '__main__':
-    print disk_usage(sys.argv[1])
+    print disk_available(sys.argv[1])

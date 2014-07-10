@@ -1,4 +1,5 @@
 import os
+import sys
 import re
 from processes.hiseq.scripts import translate_sample_name, list_sample_dirs
 
@@ -6,8 +7,12 @@ from processes.hiseq.scripts import translate_sample_name, list_sample_dirs
 #This function reads the sample sheet into appropriate objects
 def parse_sample_sheet(config,mockdb,directory):
     table  = table_reader(os.path.join(directory, 'SampleSheet.csv'))
-    samplesheet = table[0]
+    try:
+        samplesheet = table[0]
+    except:
+        sys.exit("No file SampleSheet.csv in " + directory) 
     parsed = {}
+    #sys.stderr.write(str(samplesheet))
     sample_key = translate_sample_name(samplesheet['SampleID'])
     parsed['project_name'] = samplesheet['SampleProject']
     parsed['sample'] = mockdb['Sample'].__get__(config,key=sample_key)
@@ -60,8 +65,8 @@ def parse_sequencing_run_dir(directory):
     base_dir = get_sequencing_run_base_dir(directory)
     (head,tail) = os.path.split(base_dir)
     names = tail.split("_")
-    if len(names) != 4:
-        raise Exception
+    if len(names) < 4:
+        raise Exception("Improper directory name {0}.".format(directory))
     date = names[0]
     machine = names[1]
     run_number = names[2]

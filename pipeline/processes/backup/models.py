@@ -23,23 +23,23 @@ class Backup(SampleQsubProcess):
         if location is None:
             self.location = config.get('Backup','dir_name')
 
-    def __fill_qsub_file__(self,config,r_list=None):
+    def __fill_qsub_file__(self,configs,r_list=None):
         """
         Fills the qsub file from a template.  Since not all information is archived in the parent object, 
         the function also gets additional information on the fly for the qsub file.
         """
-        template_file= os.path.join(config.get('Common_directories','template'),'generic_qsub.template')
+        template_file= os.path.join(configs['system'].get('Common_directories','template'),'generic_qsub.template')
         if r_list is None:
             r_list = [ fname for fname in os.listdir(self.input_dir) if re.search("R[1,2]\w*\.fastq",fname) ]
         dictionary = {}
         for k,v in self.__dict__.iteritems():
             dictionary.update({k:str(v)})
         commands = ""
-        copy = config.get('Backup','copy')
-        keygen = config.get('Backup','generate_key')
+        copy = configs['pipeline'].get('Backup','copy')
+        keygen = configs['pipeline'].get('Backup','generate_key')
         for fname in r_list:
-            key_in = os.path.join(config.get('Backup','key_repository'),fname + config.get('Backup','key_extension'))
-            key_out = os.path.join(self.output_dir,fname + config.get('Backup','key_extension'))
+            key_in = os.path.join(configs['pipeline'].get('Backup','key_repository'),fname + configs['pipeline'].get('Backup','key_extension'))
+            key_out = os.path.join(self.output_dir,fname + configs['pipeline'].get('Backup','key_extension'))
             commands += "cd " + self.input_dir + "\n" + copy   + " " + fname + " " + self.output_dir + "\n"
             commands += "cd " + self.input_dir + "\n" + keygen + " " + fname + " > " + key_in + "\n"
             commands += "cd " + self.output_dir + "\n" + keygen + " " + fname + " > " + key_out + "\n"
@@ -47,7 +47,7 @@ class Backup(SampleQsubProcess):
         with open(self.qsub_file,'w') as f:
             f.write(fill_template(template_file,dictionary))
 
-    def __is_complete__(self,config,storage_device):
+    def __is_complete__(self,configs,storage_device):
         """
         Check the complete file of the backup process, retry copying files
         where the keys for the input and output files are not the
@@ -57,12 +57,12 @@ class Backup(SampleQsubProcess):
             return True
         elif not os.path.isfile(self.complete_file):
             return False
-        failed_files = self.__failed_files__(config)
+        failed_files = self.__failed_files__(configs['pipeline'])
         if len(failed_files) > 0:
-            if self.retry >= config.get('Backup','retry_threshold'):
-                send_email(self.__generate_repeated_error_text__(config,failed_files))
-            self.__fill_qsub_file__(config,r_list=failed_files)
-            self.__launch__(config,storage_device)
+            if self.retry >= configs['pipeline'].get('Backup','retry_threshold'):
+                send_email(self.__generate_repeated_error_text__(configs,failed_files))
+            self.__fill_qsub_file__(configs,r_list=failed_files)
+            self.__launch__(configs,storage_device)
             self.retry += 1
             return False
         return True
@@ -82,9 +82,9 @@ class Backup(SampleQsubProcess):
                 failed_files.append(fname)
         return failed_files
 
-    def __generate_repeated_error_text__(self,config,failed_files):
-        template_subject = os.path.join(config.get('Common_directories','template'),config.get('Backup_email_templates','repeated_subject'))
-        template_body = os.path.join(config.get('Common_directories','template'),config.get('Backup_email_templates','repeated_body'))
+    def __generate_repeated_error_text__(self,configs,failed_files):
+        template_subject = os.path.join(configs['system'].get('Common_directories','template'),configs['pipeline'].get('Backup_email_templates','repeated_subject'))
+        template_body = os.path.join(configs['system'].get('Common_directories','template'),configs['pipelibe'].get('Backup_email_templates','repeated_body'))
         dictionary = {}
         for k,v in self.__dict__.iteritems():
             dictionary.update({k:str(v)})
@@ -104,38 +104,38 @@ class Backup(SampleQsubProcess):
         body = fill_template(template_body,dictionary)
         return subject, body
 
-    def __generate_full_error_text__(self,config,storage_device):
-        template_subject = os.path.join(config.get('Common_directories','template'),config.get('Backup_email_templates','full_subject'))
-        template_body = os.path.join(config.get('Common_directories','template'),config.get('Backup_email_templates','full_body'))
+    def __generate_full_error_text__(self,configs,storage_device):
+        template_subject = os.path.join(configs['system'].get('Common_directories','template'),configs['pipeline'].get('Backup_email_templates','full_subject'))
+        template_body = os.path.join(configs['system'].get('Common_directories','template'),configs['pipeline'].get('Backup_email_templates','full_body'))
         dictionary = {}
         for k,v in self.__dict__.iteritems():
             dictionary.update({k:str(v)})
         dictionary.update({'available': str(storage_device.available)})
-        dictionary.update({'required_fastq_size': str(config.get('Storage','required_fastq_size'))})
+        dictionary.update({'required_fastq_size': str(configs['pipeline'].get('Storage','required_fastq_size'))})
         subject = fill_template(template_subject,dictionary)
         body = fill_template(template_body,dictionary)
         return subject, body
 
-    def __launch__(self,config,storage_device,node_list=None):
+    def __launch__(self,configs,storage_device,node_list=None):
         """
         Checks to make sure there is enough storage.  If
         not, sends email.  If so, sends the job to SGE and 
         records pertinent information.
         """
         #If storage device is full, send a notification and abort.
-        if storage_device.__is_full__(config.get('Storage','required_fastq_size')):
-            send_email(self.__generate_full_error_text__(config,storage_device))
+        if storage_device.__is_full__(configs['pipeline'].get('Storage','required_fastq_size')):
+            send_email(self.__generate_full_error_text__(configs,storage_device))
             return False
         #This differs from the previous check by the fact that the previous does not
         #account for jobs that are currently being copied.  This error is not as 
         #restrictive due to the fact that the required_fastq_size should be larger than
         #the actual fastq size thus leaving additional storage once complete.
-        if not storage_device.__is_available__(config.get('Storage','required_fastq_size')) and self.fail_reported == False:
-            send_email(self.__generate_storage_error_text__(config,storage_device))
+        if not storage_device.__is_available__(configs['pipeline'].get('Storage','required_fastq_size')) and self.fail_reported == False:
+            send_email(self.__generate_storage_error_text__(configs,storage_device))
             self.fail_reported = True
             return False
         if node_list is None:
-            node_list = config.get('Backup','nodes')
-        SampleQsubProcess.__launch__(self,config,node_list=node_list,queue_name='single')
+            node_list = configs['pipeline'].get('Backup','nodes')
+        SampleQsubProcess.__launch__(self,configs['system'],node_list=node_list,queue_name='single')
         return True
 

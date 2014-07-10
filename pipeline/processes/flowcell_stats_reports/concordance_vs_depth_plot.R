@@ -1,9 +1,10 @@
-#!/usr/bin/Rscript
+
+#!xvfb-run /mnt/speed/usr/bin/Rscript --no-save
 #This script takes a list of things and returns 
 #a subsample from that list with the provided
 #number of elements
 
-.libPaths( c(.libPaths(), "/mnt/iscsi_speed/devel/lib64/R/library") )
+#.libPaths( c(.libPaths(), "/mnt/iscsi_speed/devel/lib64/R/library") )
 args <- commandArgs(TRUE)
 data <- read.table(file=args[1],sep=",",header=TRUE)
 current_samples <- read.table(file=args[2],header=FALSE)
@@ -23,8 +24,8 @@ a <- a + theme(panel.background = element_blank())
 a <- a + theme(plot.title = element_text(size=24,face="bold"))
 a <- a + theme(axis.title.x = element_text(size=20,face="bold"))
 a <- a + theme(axis.title.y = element_text(size=20,face="bold"))
-a <- a + theme(axis.text.x = element_text(size=16))
-a <- a + theme(axis.text.y = element_text(size=16))
+a <- a + theme(axis.text.x = element_text(size=20))
+a <- a + theme(axis.text.y = element_text(size=20))
 a <- a + geom_hline(yintercept=97,linetype='dotted',colour='red')
 a <- a + geom_text(data=NULL, x = 50, y = 96, label = '97', color = 'red')
 a <- a + xlab('Mean read depth')

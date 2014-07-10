@@ -1,4 +1,5 @@
 import os
+import sys
 import argparse
 import re
 import ConfigParser
@@ -44,19 +45,47 @@ def grab_hethom_stats(path):
     with open(path,'r') as f:
         f.readline() #First line is header
         columns = f.readline().rstrip().split("\t")
-    total = int(columns[1]) + int(columns[2])
+    try:
+        total = int(columns[1]) + int(columns[2])
+    except IndexError:
+        raise IndexError("The path {0} is malformed.\n".format(path))
     return columns[1], columns[2], total, columns[3] #The hom, het, total, ratio
         
-def store_snp_stats_in_db(snp_stats,directory=None):
+def grab_indbsnp_stats(path):
+    """
+    Grabs the number of autosomal variants in the dbsnp database, the
+    total number of autosomal variants, and the percentage in dbsnp from
+    the in dbsnp script.
+    """
+    if not os.path.isfile(path):
+        raise Exception("No such file: {0}\n".format(path))
+    with open(path,'r') as f:
+        f.readline() #First line is header
+        columns = f.readline().rstrip().split("\t")
+    return columns[0], columns[1], columns[2] #The indbsnp count, autosomal total, percentage
+
+def store_snp_stats_in_db(snp_stats,directory=None,sample_key=None):
     if snp_stats.concordance_path is None:
-        snp_stats.concordance_path =  self.sample_key + '.con'
-        snp_stats.hethom_path =  self.sample_key + '.hethom'
+        snp_stats.concordance_path =  snp_stats.sample_key + '.con'
+        snp_stats.hethom_path =  snp_stats.sample_key + '.hethom'
+    if snp_stats.indbsnp_path is None:
+        snp_stats.indbsnp_path = snp_stats.sample_key + '.indbsnp'
+    #else:
+    #    snp_stats.indbsnp_path = snp_stats.sample_key + '.indbsnp'
     if directory is None:
         snp_stats.concordance_calls, snp_stats.percentage_concordance = grab_concordance_stats(snp_stats.concordance_path)
         snp_stats.hom, snp_stats.het, snp_stats.variants_total, snp_stats.hethom_ratio = grab_hethom_stats(snp_stats.hethom_path)
+        dummy_indbsnp, dummy_tot, snp_stats.in_dbsnp = grab_indbsnp_stats(snp_stats.indbsnp_path)
         return 1
-    concordance_path = os.path.join(directory,os.path.basename(snp_stats.concordance_path))
-    hethom_path = os.path.join(directory,os.path.basename(snp_stats.hethom_path))
+    if not sample_key is None:
+        snp_stats.sample_key = sample_key
+        concordance_path = os.path.join(directory,sample_key + '.con')
+        hethom_path = os.path.join(directory,sample_key + '.hethom')
+        indbsnp_path = os.path.join(directory,sample_key + '.indbsnp')
+    else:
+        concordance_path = os.path.join(directory,os.path.basename(snp_stats.concordance_path))
+        hethom_path = os.path.join(directory,os.path.basename(snp_stats.hethom_path))
+        indbsnp_path = os.path.join(directory,os.path.basename(snp_stats.indbsnp_path))
     snp_stats.concordance_calls, snp_stats.percentage_concordance = grab_concordance_stats(concordance_path)
     if os.path.isfile(hethom_path):
         snp_stats.hom, snp_stats.het, snp_stats.variants_total, snp_stats.hethom_ratio = grab_hethom_stats(hethom_path)
@@ -65,9 +94,25 @@ def store_snp_stats_in_db(snp_stats,directory=None):
         hethom_name = re.sub("_","-",hethom_name)
         hetthom_path = os.path.join(hethom_dir,hethom_name)
         snp_stats.hom, snp_stats.het, snp_stats.variants_total, snp_stats.hethom_ratio = grab_hethom_stats(hethom_path)
+    if os.path.isfile(indbsnp_path):
+        dummy_indbsnp, dummy_tot, snp_stats.in_dbsnp = grab_indbsnp_stats(indbsnp_path)
+    else:
+        indnsnp_dir, indbsnp_name = os.path.split(indbsnp_path)
+        indbsnp_name = re.sub("_","-",indbsnp_name)
+        indbsnp_path = os.path.join(indbsnp_dir,indbsnp_name)
+        dummy_indbsnp, dummy_tot, snp_stats.in_dbsnp = grab_indbsnp_stats(indbsnp_path)
+    return 1
 
-def store_search_stats_in_db(concord_search):
-    return_vals = grab_search_stats(self.output_path)
+def store_search_stats_in_db(concord_search,directory=None,sample_key=None):
+    if directory is None:
+    	return_vals = grab_search_stats(concord_search.output_path)
+    else:
+        if sample_key is None:
+            out_name = os.path.basename(concord_search.output_path)
+        else:
+            out_name = sample_key + '_all.con'
+        output_path = os.path.join(directory,out_name)
+        return_vals = grab_search_stats(output_path)
     concord_search.first_match = return_vals[-2]
     concord_search.first_concordance = return_vals[-1]
     concord_search.second_match = return_vals[-4]
@@ -85,17 +130,25 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Puts the project-summary.csv info into the bcbio database')
     parser.add_argument('sample_key', type=str, help='The sample name from which the snp_stats process is keyed')
     parser.add_argument('-d','--directory', dest='directory', type=str, default=None, help='The path to the concordance and hethom files.  The default is the files stored in the snp_stats process.')    
+    parser.add_argument('--search', dest='search', action='store_true', help='This extracts and stores the search statistics instead of the snp_stats statistics.')    
     args = parser.parse_args()
-    config = ConfigParser.ConfigParser()
-    config.read('/mnt/iscsi_space/zerbeb/pipeline_project/pipeline/config/qc.cfg')
-    mockdb = initiate_mockdb(config)
+    system_config = ConfigParser.ConfigParser()
+    system_config.read('/home/sequencing/src/pipeline_project/pipeline/config/ihg_system.cfg')
+    pipeline_config = ConfigParser.ConfigParser()
+    pipeline_config.read('/home/sequencing/src/pipeline_project/pipeline/config/qc_on_ihg.cfg')
+    mockdb = initiate_mockdb(system_config)
     sample_snp_stats_dict = mockdb['SnpStats'].__attribute_value_to_object_dict__('sample_key')
     try:
         snp_stats = sample_snp_stats_dict[args.sample_key][0]
+        print snp_stats.sample_key + "," + str(snp_stats.key)
     except KeyError:
         pieces = args.sample_key.split('-')
         sample_key2 = pieces[0] + '-' + pieces[1] + '_' + pieces[2]
         #sys.stderr.write("%s\n" % sample_key2)
         snp_stats = sample_snp_stats_dict[sample_key2][0]
-    store_snp_stats_in_db(snp_stats,directory=args.directory)
-    save_mockdb(config,mockdb)
+    if args.search:
+        concord_search = mockdb['ConcordanceSearch'].objects[snp_stats.search_key]
+        store_search_stats_in_db(concord_search,directory=args.directory,sample_key=args.sample_key)
+    else:
+        store_snp_stats_in_db(snp_stats,directory=args.directory,sample_key=args.sample_key)
+    save_mockdb(system_config,mockdb)

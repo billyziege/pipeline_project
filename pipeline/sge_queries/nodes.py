@@ -11,7 +11,7 @@ def initialize_nodes():
     proc = subprocess.Popen(command,stdout=subprocess.PIPE)
     out = proc.stdout.read().split("\n")
     for line in out:
-        match_obj = re.search('(\w+)@(node\w+)',line)
+        match_obj = re.search('(\w+)@(ihg-node-\w+)',line)
         if match_obj:
             nodes[match_obj.group(2)] = Node(match_obj.group(2))
     return nodes
@@ -21,7 +21,7 @@ def mark_broken(nodes,config):
     proc = subprocess.Popen(command,stdout=subprocess.PIPE)
     out = proc.stdout.read().split("\n")
     for line in out:
-        match_obj = re.search('(\w+)@(node\w+)',line)
+        match_obj = re.search('(\w+)@(ihg-node-\w+)',line)
         if not match_obj:
             continue
 	columns = line.split()
@@ -31,6 +31,8 @@ def mark_broken(nodes,config):
             continue
         nodes[match_obj.group(2)].broken = True
     for name in config.get('SGE','do_not_use_nodes').split(','):
+        if name == '':
+            continue
         nodes[name].broken = True
     return nodes    
 
@@ -39,7 +41,7 @@ def note_jobs(nodes):
     proc = subprocess.Popen(command,stdout=subprocess.PIPE)
     out = proc.stdout.read().split("\n")
     for line in out:
-        match_obj = re.search('(\w+)@(node\w+)',line)
+        match_obj = re.search('(\w+)@(ihg-node-\w+)',line)
         if not match_obj:
             continue
         if nodes[match_obj.group(2)].number_jobs == 'Inf':
@@ -94,7 +96,7 @@ def grab_good_node(config,node_list=None):
     
 if __name__ == '__main__':
     config = ConfigParser.ConfigParser()
-    config.read('/mnt/iscsi_space/zerbeb/pipeline_project/pipeline/config/qc.cfg')
+    config.read('/home/sequencing/src/pipeline_project/pipeline/config/ihg_system.cfg')
     if len(sys.argv) > 1:
     	print grab_good_node(config,sys.argv[1])
     else:

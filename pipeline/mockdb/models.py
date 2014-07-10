@@ -198,7 +198,7 @@ class SetOfKeyedObjects:
                             except ValueError:
                                 setattr(instance,keys[i],vals[i])
                         if key != None:
-                            if instance.key not in key:
+                            if instance.key not in [key]:
                                 continue
                         #Load all keys if key is none.  Elsewise, just that key.
                         self.objects[instance.key] = instance

@@ -105,22 +105,23 @@ class FlowcellStatisticsReports(GenericProcess):
                 return False
         return True
 
-    def __generate_reports__(self,config,mockdb):
+    def __generate_reports__(self,configs,mockdb):
         """
         Checks the number of completed samples and generates reports
         based on this number and what has been previously reported.
         Return True only if a new report object is initialized.
         """
         sample_keys = self.__completed_samples_list__(mockdb)
-        numbers = config.get('Flowcell_reports','numbers').split(',')
+        n = len(sample_keys)
+        numbers = configs['pipeline'].get('Flowcell_reports','numbers').split(',')
         numbers.sort(key=int,reverse=True)
-        flowcell = mockdb['Flowcell'].__get__(config,key=self.flowcell_key)
+        flowcell = mockdb['Flowcell'].__get__(configs['system'],key=self.flowcell_key)
         for number in numbers:
-            if len(sample_keys) >= int(number):
+            if n >= int(number):
                 if getattr(self,'flowcell_report_' + str(number) + '_key') is None:
-                    report = mockdb['FlowcellStatisticReport'].__new__(config,sample_keys=sample_keys,flowcell=flowcell,number=number,base_output_dir=self.base_output_dir)
-                    report.__fill_qsub_file__(config)
-                    report.__launch__(config)
+                    report = mockdb['FlowcellStatisticReport'].__new__(configs['system'],sample_keys=sample_keys,flowcell=flowcell,number=number,base_output_dir=self.base_output_dir)
+                    report.__fill_qsub_file__(configs)
+                    report.__launch__(configs['system'])
                     setattr(self,'flowcell_report_' + str(number) + '_key',report.key)
                     return True
                 return False
@@ -215,25 +216,27 @@ class FlowcellStatisticReport(QsubProcess):
         self.greater_than_10x_jpeg = os.path.join(self.output_dir,'greater_than_10x_vs_depth.jpeg')
         self.zero_coverage_jpeg = os.path.join(self.output_dir,'zero_coverage_vs_depth.jpeg')
         self.hethomratio_jpeg = os.path.join(self.output_dir,'hethomratio_vs_depth.jpeg')
+        self.reads_jpeg = os.path.join(self.output_dir,'reads_vs_depth.jpeg')
         self.report_pdf = os.path.join(self.output_dir,self.flowcell_key + '_report.pdf')
         #Flag to keep track if report has been sent
         self.report_sent = False
 
-    def __fill_qsub_file__(self,config):
+    def __fill_qsub_file__(self,configs):
         """
         Fills the qsub file from a template.  Since not all information is archived in the parent object, 
         the function also gets additional information on the fly for the qsub file.
         """
-        template_file= os.path.join(config.get('Common_directories','template'),'flowcell_report.template')
+        template_file= os.path.join(configs['system'].get('Common_directories','template'),configs['pipeline'].get('Template_files','flowcell_report'))
         dictionary = {}
         for k,v in self.__dict__.iteritems():
             dictionary.update({k:str(v)})
-        dictionary.update({'post_pipeline':config.get('Db_reports','post_pipeline')})
-        dictionary.update({'concord_script':config.get('Flowcell_reports','concord_script')})
-        dictionary.update({'dbsnp_script':config.get('Flowcell_reports','dbsnp_script')})
-        dictionary.update({'tenx_script':config.get('Flowcell_reports','tenx_script')})
-        dictionary.update({'zero_script':config.get('Flowcell_reports','zero_script')})
-        dictionary.update({'hethom_script':config.get('Flowcell_reports','hethom_script')})
+        dictionary.update({'post_pipeline':configs['pipeline'].get('Db_reports','post_pipeline')})
+        dictionary.update({'concord_script':configs['pipeline'].get('Flowcell_reports','concord_script')})
+        dictionary.update({'dbsnp_script':configs['pipeline'].get('Flowcell_reports','dbsnp_script')})
+        dictionary.update({'tenx_script':configs['pipeline'].get('Flowcell_reports','tenx_script')})
+        dictionary.update({'zero_script':configs['pipeline'].get('Flowcell_reports','zero_script')})
+        dictionary.update({'hethom_script':configs['pipeline'].get('Flowcell_reports','hethom_script')})
+        dictionary.update({'reads_script':configs['pipeline'].get('Flowcell_reports','reads_script')})
         with open(self.qsub_file,'w') as f:
             f.write(fill_template(template_file,dictionary))
     
