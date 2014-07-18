@@ -60,10 +60,11 @@ def finish_seq_runs(mockdb):
     try:
         for seq_run in state_dict['Running']:
             if seq_run.__is_complete__():
-                sample_dirs = list_sample_dirs(seq_run.output_dir)
-                for sample_dir in sample_dirs:
-                    if (int(disk_usage(sample_dir)) < 200000):
-                        problem_dirs.append(sample_dir)
+                sample_dirs = list_sample_dirs(seq_run.output_dir.split(":"))
+                for sample in sample_dirs:
+                    for sample_dir in sample_dirs[sample]:
+                        if (int(disk_usage(sample_dir)) < 200000):
+                            problem_dirs.append(sample_dir)
                 seq_run.__finish__()
     except KeyError:
         pass

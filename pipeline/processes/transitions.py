@@ -11,12 +11,114 @@ from demultiplex_stats.fill_demultiplex_stats import fill_demultiplex_stats
 from processes.snp_stats.extract_stats import store_snp_stats_in_db, store_search_stats_in_db
 from processes.pipeline.extract_stats import store_stats_in_db
 from sge_email.scripts import send_email
+from processes.hiseq.multi_fastq import create_multi_fastq_yaml
 
-def begin_next_step(configs,mockdb,pipeline,step_objects,next_step,prev_step):
+def begin_next_step(configs,mockdb,pipeline,step_objects,next_step_key,prev_step_key):
     """The begin functions are to be used with linear pipelines"""
-    sys.stderr.write("Beginning "+next_step+" for "+pipeline.sample_key+"\n")
-    step_objects[next_step] = globals()["begin_"+next_step](configs,mockdb,pipeline,step_objects,prev_step=prev_step)
+    sys.stderr.write("Beginning "+next_step_key+" for "+pipeline.sample_key+"\n")
+    step_objects[next_step_key] = globals()["begin_"+next_step_key](configs,mockdb,pipeline,step_objects,prev_step_key=prev_step_key)
     return step_objects
+
+def begin_zcat_multiple(configs,mockdb,pipeline,step_objects,**kwargs):
+    sample = mockdb['Sample'].__get__(configs['system'],pipeline.sample_key)
+    project_out = re.sub('_','-',pipeline.project)
+    if re.search("[0-9]",project_out[0:1]):
+        project_out = "Project-" + project_out
+    section_header = pipeline.running_location + '_directories'
+    base_output_dir = configs['system'].get(section_header,'working_directory')
+    date=datetime.date.today().strftime("%Y%m%d")
+    output_dir = os.path.join(base_output_dir,project_out + "_" + sample.key + '_' + str(date))
+    if not os.path.isdir(output_dir) and not re.search('dummy',output_dir):
+        os.makedirs(output_dir)
+    multi_fastq_file = os.path.join(output_dir,sample.key + '_fastq.yaml')
+    create_multi_fastq_yaml(multi_fastq_file,pipeline.input_dir.split(":"))
+    zcat_multiple = mockdb['ZcatMultiple'].__new__(configs['system'],sample=sample,multi_fastq_file=multi_fastq_file,date=date,output_dir=output_dir)
+    pipeline.zcat_multiple_key = zcat_multiple.key
+    zcat_multiple.__fill_qsub_file__(configs)
+    zcat_multiple.__launch__(configs['system'])
+    return zcat_multiple
+
+def begin_bwa_aln(configs,mockdb,pipeline,step_objects,prev_step_key,**kwargs):
+    sample = mockdb['Sample'].__get__(configs['system'],pipeline.sample_key)
+    ref_fa = configs['pipeline'].get('References','genome_fasta')
+    bwa_aln = mockdb['BwaAln'].__new__(configs['system'],sample=sample,prev_step=step_objects[prev_step_key],ref_fa=ref_fa,**kwargs)
+    pipeline.bwa_aln_key = bwa_aln.key
+    bwa_aln.__fill_qsub_file__(configs)
+    bwa_aln.__launch__(configs['system'])
+    return bwa_aln
+
+def begin_bwa_sampe(configs,mockdb,pipeline,step_objects,prev_step_key,**kwargs):
+    sample = mockdb['Sample'].__get__(configs['system'],pipeline.sample_key)
+    bwa_sampe = mockdb['BwaSampe'].__new__(configs['system'],sample=sample,prev_step=step_objects[prev_step_key],multi_fastq_file=step_objects["zcat_multiple"].multi_fastq_file,ref_fa=step_objects["bwa_aln"].ref_fa,project=pipeline.project,**kwargs)
+    pipeline.bwa_sampe_key = bwa_sampe.key
+    bwa_sampe.__fill_qsub_file__(configs)
+    bwa_sampe.__launch__(configs['system'])
+    return bwa_sampe
+
+def begin_sam_conversion(configs,mockdb,pipeline,step_objects,prev_step_key,**kwargs):
+    sample = mockdb['Sample'].__get__(configs['system'],pipeline.sample_key)
+    sam_conversion = mockdb['SamConversion'].__new__(configs['system'],sample=sample,prev_step=step_objects[prev_step_key],**kwargs)
+    pipeline.sam_conversion_key = sam_conversion.key
+    sam_conversion.__fill_qsub_file__(configs)
+    sam_conversion.__launch__(configs['system'])
+    return sam_conversion
+
+def begin_sort_bam(configs,mockdb,pipeline,step_objects,prev_step_key,**kwargs):
+    sample = mockdb['Sample'].__get__(configs['system'],pipeline.sample_key)
+    if configs["system"].get("Logging","debug") is "True":
+       print "  Sample: " + sample.key 
+    sort_bam = mockdb['SortBam'].__new__(configs['system'],sample=sample,prev_step=step_objects[prev_step_key],**kwargs)
+    if configs["system"].get("Logging","debug") is "True":
+       print "  SortBam: " + str(sort_bam.key) 
+    pipeline.sort_bam_key = sort_bam.key
+    sort_bam.__fill_qsub_file__(configs)
+    sort_bam.__launch__(configs['system'])
+    return sort_bam
+
+def begin_merge_bam(configs,mockdb,pipeline,step_objects,prev_step_key,**kwargs):
+    sample = mockdb['Sample'].__get__(configs['system'],pipeline.sample_key)
+    if configs["system"].get("Logging","debug") is "True":
+       print "  Sample: " + sample.key 
+    merge_bam = mockdb['MergeBam'].__new__(configs['system'],sample=sample,prev_step=step_objects[prev_step_key],**kwargs)
+    if configs["system"].get("Logging","debug") is "True":
+       print "  MergeBam: " + str(merge_bam.key) 
+    pipeline.merge_bam_key = merge_bam.key
+    merge_bam.__fill_qsub_file__(configs)
+    merge_bam.__launch__(configs['system'])
+    return merge_bam
+
+def begin_mark_duplicates(configs,mockdb,pipeline,step_objects,prev_step_key,**kwargs):
+    sample = mockdb['Sample'].__get__(configs['system'],pipeline.sample_key)
+    mark_duplicates = mockdb['MarkDuplicates'].__new__(configs['system'],sample=sample,prev_step=step_objects[prev_step_key],**kwargs)
+    pipeline.mark_duplicates_key = mark_duplicates.key
+    mark_duplicates.__fill_qsub_file__(configs)
+    mark_duplicates.__launch__(configs['system'])
+    return mark_duplicates
+
+def begin_indel_realignment(configs,mockdb,pipeline,step_objects,prev_step_key,**kwargs):
+    sample = mockdb['Sample'].__get__(configs['system'],pipeline.sample_key)
+    dbsnp_vcf = configs['pipeline'].get('References','dbsnp_vcf')
+    indel_realignment = mockdb['IndelRealignment'].__new__(configs['system'],sample=sample,prev_step=step_objects[prev_step_key],ref_fa=step_objects["bwa_aln"].ref_fa,dbsnp_vcf=dbsnp_vcf,**kwargs)
+    pipeline.indel_realignment_key = indel_realignment.key
+    indel_realignment.__fill_qsub_file__(configs)
+    indel_realignment.__launch__(configs['system'])
+    return indel_realignment
+
+def begin_base_recalibration(configs,mockdb,pipeline,step_objects,prev_step_key,**kwargs):
+    sample = mockdb['Sample'].__get__(configs['system'],pipeline.sample_key)
+    base_recalibration = mockdb['BaseRecalibration'].__new__(configs['system'],sample=sample,prev_step=step_objects[prev_step_key],ref_fa=step_objects["bwa_aln"].ref_fa,dbsnp_vcf=step_objects["indel_realignment"],**kwargs)
+    pipeline.base_recalibration_key = base_recalibration.key
+    base_recalibration.__fill_qsub_file__(configs)
+    base_recalibration.__launch__(configs['system'])
+    return base_recalibration
+
+def begin_unified_genotyper(configs,mockdb,pipeline,step_objects,prev_step_key,**kwargs):
+    sample = mockdb['Sample'].__get__(configs['system'],pipeline.sample_key)
+    unified_genotyper = mockdb['UnifiedGenotyper'].__new__(configs['system'],sample=sample,prev_step=step_objects[prev_step_key],ref_fa=step_objects["bwa_aln"].ref_fa,dbsnp_vcf=step_objects["indel_realignment"],**kwargs)
+    pipeline.unified_genotyper_key = unified_genotyper.key
+    unified_genotyper.__fill_qsub_file__(configs)
+    unified_genotyper.__launch__(configs['system'])
+    return unified_genotyper
 
 def begin_bcbio(configs,mockdb,pipeline,step_objects,**kwargs):
     zcat = step_objects["zcat"] #Some of the parameters of the bcbio are dependent on the parameters in the zcat object.
@@ -58,6 +160,7 @@ def begin_cp_result_back(configs,mockdb,pipeline,step_objects,**kwargs):
     cp_result_back.__launch__(configs['system'])
     pipeline.cp_result_back_key = cp_result_back.key
     return cp_result_back
+
 
 def things_to_do_if_zcat_complete(configs,mockdb,pipeline,zcat):
     zcat.__finish__()
@@ -110,34 +213,50 @@ def things_to_do_if_bcbio_cleaning_complete(storage_devices,mockdb,pipeline,clea
 
 def things_to_do_if_starting_pipeline(configs,mockdb,pipeline):
     sample = mockdb['Sample'].__get__(configs['system'],pipeline.sample_key)
-    section_header = pipeline.running_location + '_directories'
-    base_output_dir = configs['system'].get(section_header,'bcbio_output')
-    try:
-        project_out = re.sub('_','-',pipeline.project)
-        if re.search("[0-9]",project_out[0:1]):
-            project_out = "Project-" + project_out
-        date=datetime.date.today().strftime("%Y%m%d")
-        output_dir = os.path.join(base_output_dir,project_out + "_" + sample.key + '_' + str(date))
-        zcat = mockdb['Zcat'].__new__(configs['system'],sample=sample,input_dir=pipeline.input_dir,base_output_dir=base_output_dir,output_dir=output_dir,date=date)
-    except AttributeError:
-      zcat = mockdb['Zcat'].__new__(configs['system'],sample=sample,input_dir=pipeline.input_dir,base_output_dir=base_output_dir)
-    zcat.__fill_qsub_file__(configs['system'])
-    pipeline.zcat_key = zcat.key
-    zcat.__launch__(configs['system'])
+    if configs["pipeline"].has_option("Pipeline","steps"): #New interface for allowing external definition of linear pipelines
+        step_order, step_objects = pipeline.__steps_to_objects__(configs["system"],configs["pipeline"],mockdb)
+        first_step = step_order[0]
+        step_objects = begin_next_step(configs,mockdb,pipeline,step_objects,first_step,None)
+        zcat = step_objects["zcat_multiple"]
+    else:
+        section_header = pipeline.running_location + '_directories'
+        base_output_dir = configs['system'].get(section_header,'bcbio_output')
+        try:
+            project_out = re.sub('_','-',pipeline.project)
+            if re.search("[0-9]",project_out[0:1]):
+                project_out = "Project-" + project_out
+            date=datetime.date.today().strftime("%Y%m%d")
+            output_dir = os.path.join(base_output_dir,project_out + "_" + sample.key + '_' + str(date))
+            zcat = mockdb['Zcat'].__new__(configs['system'],sample=sample,input_dir=pipeline.input_dir,base_output_dir=base_output_dir,output_dir=output_dir,date=date)
+        except AttributeError:
+            zcat = mockdb['Zcat'].__new__(configs['system'],sample=sample,input_dir=pipeline.input_dir,base_output_dir=base_output_dir)
+        zcat.__fill_qsub_file__(configs['system'])
+        pipeline.zcat_key = zcat.key
+        zcat.__launch__(configs['system'])
     pipeline.state = 'Running'
     return 1
 
 def things_to_do_if_sequencing_run_is_complete(configs,storage_devices,mockdb,seq_run,pipeline_name):
     flowcell = mockdb['Flowcell'].__get__(configs['system'],seq_run.flowcell_key)
     machine = mockdb['HiSeqMachine'].__get__(configs['system'],seq_run.machine_key)
+    if configs["system"].get("Logging","debug") is "True":
+        print "  Flowcell " + flowcell.key
+        print "  Machine " + machine.key
+        print "  Filling stats"
     fill_demultiplex_stats(configs['system'],mockdb,seq_run.output_dir,flowcell,machine)
-    sample_dirs = list_sample_dirs(seq_run.output_dir)
-    for sample_dir in sample_dirs:
+    if configs["system"].get("Logging","debug") is "True":
+        print "  Determining dirs"
+    sample_dirs = list_sample_dirs(seq_run.output_dir.split(":"))
+    if configs["system"].get("Logging","debug") is "True":
+       print "  Samples: " + str(sample_dirs) 
+    for sample in sample_dirs:
+        if configs["system"].get("Logging","debug") is "True":
+           print "    Processing " + sample
         running_location = identify_running_location_with_most_currently_available(configs,storage_devices)
-        parsed = parse_sample_sheet(configs['system'],mockdb,sample_dir)
+        parsed = parse_sample_sheet(configs['system'],mockdb,sample_dirs[sample][0])
         if (re.search('MSBP$',parsed['description']) and (pipeline_name == 'QualityControlPipeline')):
             base_output_dir = configs['pipeline'].get('Common_directories','bcbio_upload')
-            pipeline = mockdb['QualityControlPipeline'].__new__(configs['system'],input_dir=sample_dir,base_output_dir=base_output_dir,sequencing=seq_run,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
+            pipeline = mockdb['QualityControlPipeline'].__new__(configs['system'],input_dir=sample_dir[sample][0],base_output_dir=base_output_dir,sequencing=seq_run,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
             #backup = mockdb['Backup'].__new__(config,sample=parsed['sample'],input_dir=sample_dir)
             #backup.__fill_qsub_file__(config)
             #backup.__launch__(config,storage_device=storage_devices[backup.location])
@@ -149,40 +268,44 @@ def things_to_do_if_sequencing_run_is_complete(configs,storage_devices,mockdb,se
             report.__add_pipeline__(pipeline)
         elif (re.search('NGv3$',parsed['description']) and (pipeline_name == 'StandardPipeline')):
             base_output_dir = configs['pipeline'].get('Common_directories','bcbio_upload')
-            mockdb['StandardPipeline'].__new__(configs['system'],input_dir=sample_dir,base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
+            mockdb['StandardPipeline'].__new__(configs['system'],input_dir=sample_dirs[sample][0],base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
         elif (re.search('MHC$',parsed['description']) and (pipeline_name == 'MHCPipeline')):
             base_output_dir = configs['pipeline'].get('Common_directories','bcbio_upload')
-            mockdb['MHCPipeline'].__new__(configs['system'],input_dir=sample_dir,base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
+            mockdb['MHCPipeline'].__new__(configs['system'],input_dir=sample_dirs[sample][0],base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
         elif (re.search('NGv3plusUTR$',parsed['description']) and (pipeline_name == 'NGv3PlusPipeline')):
             base_output_dir = configs['pipeline'].get('Common_directories','bcbio_upload')
-            mockdb['NGv3PlusPipeline'].__new__(configs['system'],input_dir=sample_dir,base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
+            mockdb['NGv3PlusPipeline'].__new__(configs['system'],input_dir=sample_dirs[sample][0],base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
+        
     return 1
 
 def things_to_do_if_initializing_pipeline_with_input_directory(configs,storage_devices,mockdb,source_dir,pipeline_name=None,base_output_dir=None):
     sample_dirs = list_sample_dirs(source_dir)
-    for sample_dir in sample_dirs:
+    for sample in sample_dirs:
         running_location = identify_running_location_with_most_currently_available(configs,storage_devices)
-        parsed = parse_sample_sheet(configs['system'],mockdb,sample_dir)
+        parsed = parse_sample_sheet(configs['system'],mockdb,sample_dirs[sample][0])
         if base_output_dir is None:
            base_output_dir = configs['pipeline'].get('Common_directories','bcbio_upload')
         if (re.search('MSBP$',parsed['description']) and (pipeline_name == 'QualityControlPipeline')):
-            pipeline = mockdb['QualityControlPipeline'].__new__(configs['system'],input_dir=sample_dir,base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
+            pipeline = mockdb['QualityControlPipeline'].__new__(configs['system'],input_dir=sample_dirs[sample][0],base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
         elif (re.search('NGv3$',parsed['description']) and (pipeline_name == 'StandardPipeline')):
-            mockdb['StandardPipeline'].__new__(configs['system'],input_dir=sample_dir,base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
+            mockdb['StandardPipeline'].__new__(configs['system'],input_dir=sample_dirs[sample][0],base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
         elif (re.search('MHC$',parsed['description']) and (pipeline_name == 'MHCPipeline')):
-            mockdb['MHCPipeline'].__new__(configs['system'],input_dir=sample_dir,base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
+            mockdb['MHCPipeline'].__new__(configs['system'],input_dir=sample_dirs[sample][0],base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
         elif (re.search('NGv3plusUTR$',parsed['description']) and (pipeline_name == 'NGv3PlusPipeline')):
-            mockdb['NGv3PlusPipeline'].__new__(configs['system'],input_dir=sample_dir,base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
+            mockdb['NGv3PlusPipeline'].__new__(configs['system'],input_dir=sample_dirs[sample][0],base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
         if ( pipeline_name == 'RD2Pipeline' ):
-            mockdb['RD2Pipeline'].__new__(configs['system'],input_dir=sample_dir,base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
+            mockdb['RD2Pipeline'].__new__(configs['system'],input_dir=sample_dirs[sample][0],base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
         if ( pipeline_name == 'DevelPipeline' ):
-            mockdb['DevelPipeline'].__new__(configs['system'],input_dir=sample_dir,base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
+            mockdb['DevelPipeline'].__new__(configs['system'],input_dir=sample_dirs[sample][0],base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
         if ( pipeline_name == 'BBPipeline' ):
-            mockdb['BBPipeline'].__new__(configs['system'],input_dir=sample_dir,base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
+            mockdb['BBPipeline'].__new__(configs['system'],input_dir=sample_dirs[sample][0],base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
         if ( pipeline_name == 'BBPipeline' ):
-            mockdb['BBPipeline'].__new__(configs['system'],input_dir=sample_dir,base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
+            mockdb['BBPipeline'].__new__(configs['system'],input_dir=sample_dirs[sample][0],base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
         if ( pipeline_name == 'KanePipeline' ):
-            mockdb['KanePipeline'].__new__(configs['system'],input_dir=sample_dir,base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
+            mockdb['KanePipeline'].__new__(configs['system'],input_dir=sample_dirs[sample][0],base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
+        if pipeline_name == 'TCSPipeline':
+            pipeline_steps = configs["pipeline"].get("Pipeline","steps").split(",")
+            mockdb['TCSPipeline'].__new__(configs['system'],input_dir=":".join(sample_dirs[sample]),base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],pipeline_steps=pipeline_steps,**parsed)
         flowcell_dict = mockdb['SequencingRun'].__attribute_value_to_object_dict__('flowcell_key')
         flowcell_dict = mockdb['SequencingRun'].__attribute_value_to_object_dict__('flowcell_key')
         if parsed['flowcell'].key in flowcell_dict:

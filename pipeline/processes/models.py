@@ -1,4 +1,5 @@
 import datetime
+import shutil
 import os
 import pytz
 import subprocess
@@ -59,14 +60,15 @@ class GenericProcess(NumberedObject):
 
 class QsubProcess(GenericProcess):
     """
-    Anything process submitted via qsub requires additional information.  This class keeps track of that information
+    Any process submitted via qsub requires additional information.  This class keeps track of that information.  I recently added the number_tasks
+    attribute to handle task parallelization.
     """
 
-    def __init__(self,config,key=int(-1),input_dir=None,base_output_dir=None,output_dir=None,date=strftime("%Y%m%d",localtime()),time=strftime("%H:%M:%S",localtime()),process_name='qsub',complete_file=None,qsub_file=None,**kwargs):
+    def __init__(self,config,key=int(-1),input_dir=None,base_output_dir=None,output_dir=None,process_name='qsub_task',number_tasks=1,complete_file=None,**kwargs):
         """
         Initializes the qsub object.
         """
-        GenericProcess.__init__(self,config,key=key,date=date,time=time,process_name=process_name,**kwargs)
+        GenericProcess.__init__(self,config,key=key,process_name=process_name,**kwargs)
         self.input_dir = input_dir
         if output_dir is None:
             if base_output_dir is None:
@@ -76,17 +78,28 @@ class QsubProcess(GenericProcess):
             self.output_dir = output_dir
         if not os.path.exists(self.output_dir) and not re.search('dummy',self.output_dir):
             os.makedirs(self.output_dir)
+        self.qsub_file = os.path.join(self.output_dir, self.process_name + '.sh')
         self.stderr = os.path.join(self.output_dir, self.process_name + '.stderr')
         self.stdout = os.path.join(self.output_dir, self.process_name + '.stdout')
+        self.number_tasks = number_tasks
         if complete_file is None:
-            self.complete_file = os.path.join(self.output_dir, self.process_name + '.complete')
+            complete_files = []
+            tmp_dirs = []
+            for i in range(self.number_tasks):
+                task_number = i + 1
+                complete_file = os.path.join(self.output_dir, self.process_name + '.' + str(task_number) + '.complete')
+                complete_files.append(complete_file)
+                tmp_dir = os.path.join(self.output_dir, 'tmp.' + str(task_number))
+                if not os.path.isdir(tmp_dir) and not re.search('dummy',self.output_dir):
+                    os.makedirs(tmp_dir)
+                tmp_dirs.append(tmp_dir)
+            self.tmp_dir = ":".join(tmp_dirs)
+            self.complete_file = ":".join(complete_files)
         else:
             self.complete_file = complete_file
-        if qsub_file is None:
-            self.qsub_file = os.path.join(self.output_dir, self.process_name + '.sh')
         self.job_id = None
-        self.fail_reported = False #Hook to provide only a single e-mail when job fails.
-    
+        self.fail_report = False
+
     def __launch__(self,config,qsub_file=None,node_list=None,queue_name=None):
         """
         Sends the job to SGE and records pertinent information.
@@ -123,12 +136,16 @@ class QsubProcess(GenericProcess):
 
     def __is_complete__(self):
         """
-        Checks to see if the complete file is created.
+        Checks to see if the complete files are created.
         """
         if GenericProcess.__is_complete__(self) is False:
-            return os.path.isfile(self.complete_file)
-        else:
-            return True
+            complete_files = self.complete_file.split(":")
+            for complete_file in complete_files:
+                sys.stderr.write("Complete file: "+complete_file+"\n")
+                if os.path.isfile(complete_file):
+                    continue
+                return False
+        return True
 
     def __present_on_system__(self):
         """
@@ -141,15 +158,24 @@ class QsubProcess(GenericProcess):
         Simply fills process_name template with appropriate info. 
         """
         template_file= os.path.join(configs['system'].get('Common_directories','template'),configs['pipeline'].get('Template_files',self.process_name))
-        dictionary = {}
         with open(self.qsub_file,'w') as f:
             f.write(fill_template(template_file,self.__dict__))
+
+    def __finish__(self,date=strftime("%Y%m%d",localtime()),time=strftime("%H:%M",localtime())):
+        """
+        Finishes the qsub process by also removing the tmp dir(s).
+        """
+        GenericProcess.__finish__(self,date,time)
+        if hasattr(self,'tmp_dir') and not self.tmp_dir is None:
+            for tmp_dir in self.tmp_dir.split(":"):
+                if os.path.isdir(tmp_dir):
+                    shutil.rmtree(tmp_dir)
 
 class SampleQsubProcess(QsubProcess):
     """
     Adds the sample object to the qsub process.  This has ramifications on the output directory
     """
-    def __init__(self,config,key=int(-1),sample=None,input_dir=None,base_output_dir=None,output_dir=None,date=strftime("%Y%m%d",localtime()),time=strftime("%H:%M:%S",localtime()),process_name='sample_qsub',complete_file=None,**kwargs):
+    def __init__(self,config,key=int(-1),sample=None,process_name='sample_qsub',output_dir=None,base_output_dir=None,date=strftime("%Y%m%d",localtime()),**kwargs):
         if sample is None:
             sample = Sample(config,key="dummy_sample_key")
         if sample.__class__.__name__ != "Sample":
@@ -161,8 +187,34 @@ class SampleQsubProcess(QsubProcess):
             self.output_dir = os.path.join(base_output_dir,self.sample_key + '_' + str(date))
         else:
             self.output_dir = output_dir
-        QsubProcess.__init__(self,config,key=key,input_dir=input_dir,base_output_dir=base_output_dir,output_dir=self.output_dir,date=date,time=time,process_name=process_name,complete_file=complete_file,**kwargs)
+        QsubProcess.__init__(self,config,key=key,output_dir=self.output_dir,process_name=process_name,**kwargs)
 
+class Bam2BamQsubProcess(SampleQsubProcess):
+    """
+    A number of jobs take a bam as an input and output the bam.  This generalizes the initialization of such
+    jobs.  New bam description is the string that will be inserted in front of .bam.  If None, the input bam 
+    is the same as the output (overwritten, I'd imagine). 
+    """
+    def __init__(self,config,key=int(-1),prev_step=None,new_bam_description=None,output_bam=None,process_name='bam2bam_qsub',**kwargs):
+        SampleQsubProcess.__init__(self,config,key=key,process_name=process_name,**kwargs)
+        if not prev_step is None:
+            self.input_bam = prev_step.output_bam
+            if not new_bam_description is None:
+                self.output_bam, number = re.subn(r".bam","."+new_bam_description+".bam",self.input_bam)
+            else:
+                if output_bam is None:
+                    self.output_bam = self.input_bam
+                else:
+                    self.output_bam = output_bam
+
+    def __is_complete__(self):
+        if QsubProcess.__is_complete__(self):
+            for output_bam in self.output_bam.split(":"):
+                sys.stderr.write("Output bam: "+output_bam+"\n")
+                if not os.path.isfile(output_bam):
+                    return False
+            return True
+        return False
 
 class QualityControlPipeline(GenericProcess):
 
@@ -309,16 +361,21 @@ class StandardPipeline(GenericProcess):
             print("The pipeline for "+self.sample_key+" has not started but is apparently running.  Moving to initiated but not running.")
             return 1
         step_order, step_objects = self.__steps_to_objects__(configs["system"],configs["pipeline"],mockdb)
-        prev_step = step_order[0]
-        for current_step in step_order[1:]:
-            if step_objects[current_step] is None: #This means the current step hasn't begun (and is really the next step)
-                if step_objects[prev_step].__is_complete__(configs): #Check to see if the previous step has completed.
-                    step_objects[prev_step].__finish__()
-                    step_objects = begin_next_step(configs,mockdb,self,step_objects,current_step,prev_step)
+        prev_step_key = step_order[0]
+        for current_step_key in step_order[1:]:
+            print current_step_key
+            if step_objects[current_step_key] is None: #This means the current step hasn't begun (and is really the next step)
+                if configs["system"].get("Logging","debug") is "True":
+                    print "  Checking to see if this process should begin" 
+                if step_objects[prev_step_key].__is_complete__(): #Check to see if the previous step has completed.
+                    if configs["system"].get("Logging","debug") is "True":
+                       print "  It should" 
+                    step_objects[prev_step_key].__finish__()
+                    step_objects = begin_next_step(configs,mockdb,self,step_objects,current_step_key,prev_step_key)
                 return 1
-            prev_step = current_step
-        if step_objects[prev_step].__is_complete__(configs): #Check to see if the last step has completed.
-            step_objects[prev_step].__finish__()
+            prev_step_key = current_step_key
+        if step_objects[prev_step_key].__is_complete__(): #Check to see if the last step has completed.
+            step_objects[prev_step_key].__finish__()
             self.__finish__(storage_device=storage_devices[self.running_location])
         return 1
             
@@ -620,3 +677,42 @@ class NGv3PlusPipeline(StandardPipeline):
         StandardPipeline.__init__(self,config,key,sample,barcode,flowcell,description,recipe,input_dir,base_output_dir,date,time,process_name,sequencing_run,running_location,storage_needed,project,**kwargs)
         self.summary_stats_key = None
         self.cp_to_results_key = None
+
+class TCSPipeline(StandardPipeline):
+
+    def __init__(self,config,key=int(-1),sample=None,flowcell=None,description=None,recipe=None,input_dir=None,base_output_dir=None,date=strftime("%Y%m%d",localtime()),time=strftime("%H:%M:%S",localtime()),process_name='tcspipeline',sequencing_run=None,running_location='Speed',storage_needed=500000000,project=None,altered_parameters=None,pipeline_steps=[],**kwargs):
+        if sample is None:
+            sample = Sample(config,key="dummy_sample_key")
+        if sample.__class__.__name__ != "Sample":
+            raise Exception("Trying to start a qcpipeline process on a non-sample.")
+        #Specific information about this pipeline
+        self.description = description
+        self.recipe = recipe
+        self.storage_needed = storage_needed
+        self.input_dir = input_dir
+        self.running_location = running_location
+        self.date = date
+        if project is None:
+            if base_output_dir is None:
+                base_output_dir = ""
+            self.output_dir = os.path.join(base_output_dir,sample.key + '_' + str(date))
+        else:
+            project_out = re.sub('_','-',project)
+            self.project = project_out
+            if re.search("[0-9]",project_out[0:1]):
+                project_out = "Project-" + project_out
+            if base_output_dir == None:
+                self.output_dir = project_out + "_" + sample.key + '_' + str(date)
+            else:
+                self.output_dir = os.path.join(base_output_dir,project_out + "_" + sample.key + '_' + str(date))
+        if not os.path.exists(self.output_dir) and not re.search('dummy',sample.key):
+            os.makedirs(self.output_dir)
+        if sequencing_run != None:
+            self.sequencing_run_key=seqencing_run.key
+        else:
+            self.sequencing_key=None
+        GenericProcess.__init__(self,config,key=key,process_name=process_name,**kwargs)
+        self.sample_key = sample.key
+        self.altered_parameters = altered_parameters
+        for step in pipeline_steps:
+            setattr(self,step+"_key",None)

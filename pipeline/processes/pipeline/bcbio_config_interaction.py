@@ -4,7 +4,7 @@ import re
 import yaml
 import csv
 
-def get_genome_ref(sample_file,system_file)
+def get_genome_ref(sample_file,system_file):
     sample_yaml = grab_yaml(sample_file)
     system_yaml = grab_yaml(system_file)
     try:
@@ -17,7 +17,8 @@ def get_genome_ref(sample_file,system_file)
         loc_file = os.path.join(tool_dir,aligner+"_index.loc")
         genome_build = sample_yaml["details"][0]["genome_build"]
         return get_genome_ref_from_loc_file(genome_build,loc_file)
-
+    except:
+        return None
 
 def grab_yaml(path):
     """
@@ -26,7 +27,7 @@ def grab_yaml(path):
     and returns it as an array.
     """
     if not os.path.isfile(path):
-        raise Exception("No such file: {0}\n".format(path))
+        return None
     with open(path,'r') as f:
         return yaml.load(f)
 

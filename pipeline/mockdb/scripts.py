@@ -43,3 +43,13 @@ def translate_underscores_to_capitals(name):
     pieces = name.split("_")
     capital_pieces = [x[0:1].upper() + x[1:] for x in pieces]
     return "".join(capital_pieces)
+
+def convert_attribute_value_to_array(input_string):
+    """
+    Attributes may container arrays.  These have the following formats only:
+      [value1:value2:value3] which is a 1 dimensional array of 3 values.
+    This function converts such a string value to an appropriate nested list.
+    """
+    return input_string.split(":")
+    
+

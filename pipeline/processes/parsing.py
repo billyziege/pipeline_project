@@ -1,7 +1,7 @@
 import os
 import sys
 import re
-from processes.hiseq.scripts import translate_sample_name, list_sample_dirs
+from processes.hiseq.scripts import translate_sample_name, list_sample_dirs, table_reader
 
 
 #This function reads the sample sheet into appropriate objects
@@ -47,20 +47,6 @@ def parse_sample_sheet(config,mockdb,directory):
     parsed['recipe'] = samplesheet['Recipe']
     return parsed
 
-def table_reader(fname,sep=','):
-    """
-    Reads a table csv file with a header into a list
-    which has a dictionary keyed by row number.
-    """
-    rows = []
-    with open(fname, "r") as f:
-        keys = f.readline().strip().split(',')
-        for line in f:
-            values = line.strip().split(',')
-            dictionary = dict(zip(keys, values))
-            rows.append(dictionary)
-    return rows
-
 def parse_sequencing_run_dir(directory):
     base_dir = get_sequencing_run_base_dir(directory)
     (head,tail) = os.path.split(base_dir)
@@ -83,3 +69,4 @@ def get_sequencing_run_base_dir(directory):
     if re.search("Basecall_Stats",tail):
         (head,tail) = os.path.split(head)
     return os.path.join(head,tail)
+
