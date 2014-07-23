@@ -34,7 +34,7 @@ def clean_fields(fields,demarcation):
     """
     Removes all of the field demarcaters from a list of fields. 
     """
-    return [clean_demarcation(f,"FIELD") for f in set(fields)]
+    return [clean_demarcation(f,demarcation) for f in set(fields)]
 
 def fill_standard_fields(input_string,dictionary):
     """
@@ -42,7 +42,7 @@ def fill_standard_fields(input_string,dictionary):
     within the input_string.
     """
     output_string = input_string
-    fields = clean_standard_fields(find_standard_fields(input_string));
+    fields = clean_fields(find_standard_fields(input_string),"FIELD");
     for k in fields:
         output_string, number = re.subn("FIELDBEGIN " + k + " FIELDEND",dictionary[k],output_string)
     return output_string
@@ -57,7 +57,7 @@ def fill_array_fields(input_string,dictionary):
     array_variables = find_array_fields(input_string)
     cleaned_contents = clean_fields(array_variables,"ARRAYVARIABLEASSIGNMENT")
     for cleaned_content in cleaned_contents:
-        fields = clean_standard_fields(find_standard_fields(cleaned_content));
+        fields = clean_fields(find_standard_fields(cleaned_content),"FIELD");
         replacement_list = []
         for field in fields: #There can only be 1.
             values = convert_attribute_value_to_array(dictionary[field]) 
@@ -77,7 +77,7 @@ def fill_task_fields(input_string,dictionary):
     task_variables = find_task_fields(input_string)
     cleaned_contents = clean_fields(task_variables,"TASKVARIABLEASSIGNMENT")
     for cleaned_content in cleaned_contents:
-        fields = clean_standard_fields(find_standard_fields(cleaned_content));
+        fields = clean_fields(find_standard_fields(cleaned_content),"FIELD");
         replacement_list = []
         for task_number in range(dictionary["number_tasks"]):
             dictionary["task_position_id"] = task_number
