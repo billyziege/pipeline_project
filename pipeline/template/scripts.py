@@ -55,7 +55,7 @@ def fill_array_fields(input_string,dictionary):
     """
     output_string = input_string
     array_variables = find_array_fields(input_string)
-    cleaned_contents = clean_fields(array_varaibles,"ARRAYVARIABLEASSIGNMENT")
+    cleaned_contents = clean_fields(array_variables,"ARRAYVARIABLEASSIGNMENT")
     for cleaned_content in cleaned_contents:
         fields = clean_standard_fields(find_standard_fields(cleaned_content));
         replacement_list = []
@@ -75,7 +75,7 @@ def fill_task_fields(input_string,dictionary):
     """
     output_string = input_string
     task_variables = find_task_fields(input_string)
-    cleaned_contents = clean_fields(task_varaibles,"TASKVARIABLEASSIGNMENT")
+    cleaned_contents = clean_fields(task_variables,"TASKVARIABLEASSIGNMENT")
     for cleaned_content in cleaned_contents:
         fields = clean_standard_fields(find_standard_fields(cleaned_content));
         replacement_list = []
