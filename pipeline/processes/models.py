@@ -159,6 +159,8 @@ class QsubProcess(GenericProcess):
         """
         template_file= os.path.join(configs['system'].get('Common_directories','template'),configs['pipeline'].get('Template_files',self.process_name))
         with open(self.qsub_file,'w') as f:
+            if configs["system"].get("Logging","debug") is "True":
+                "Filling qsub with " + str(self.__dict__)
             f.write(fill_template(template_file,self.__dict__))
 
     def __finish__(self,date=strftime("%Y%m%d",localtime()),time=strftime("%H:%M",localtime())):
@@ -169,7 +171,9 @@ class QsubProcess(GenericProcess):
         if hasattr(self,'tmp_dir') and not self.tmp_dir is None:
             for tmp_dir in self.tmp_dir.split(":"):
                 if os.path.isdir(tmp_dir):
-                    shutil.rmtree(tmp_dir)
+                    sys.stderr.write("Attempting to remove " + tmp_dir)
+                    if not re.search('template',tmp_dir):
+                        shutil.rmtree(tmp_dir)
 
 class SampleQsubProcess(QsubProcess):
     """
@@ -367,7 +371,12 @@ class StandardPipeline(GenericProcess):
             if step_objects[current_step_key] is None: #This means the current step hasn't begun (and is really the next step)
                 if configs["system"].get("Logging","debug") is "True":
                     print "  Checking to see if this process should begin" 
-                if step_objects[prev_step_key].__is_complete__(): #Check to see if the previous step has completed.
+                is_complete = False
+                try:
+                    is_complete = step_objects[prev_step_key].__is_complete__() #Check to see if the previous step has completed.
+                except TypeError:
+                    is_complete = step_objects[prev_step_key].__is_complete__(configs) #Check to see if the previous step has completed.
+                if is_complete:
                     if configs["system"].get("Logging","debug") is "True":
                        print "  It should" 
                     step_objects[prev_step_key].__finish__()

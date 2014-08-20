@@ -17,10 +17,10 @@ class UnifiedGenotyper(SampleQsubProcess):
         Initializes the process object.
         """
         if not prev_step is None:
-            output_dir = re.sub(re.sub(r"align$","gatk_ug",prev_step.output_dir))
+            output_dir = re.sub(r"align$","gatk_ug",prev_step.output_dir)
             self.input_bam = prev_step.output_bam;
-            self.output_vcf = os.path.join(output_dir,self.sample_key + ".vcf");
             SampleQsubProcess.__init__(self,config,key=key,new_bam_description="recal",process_name=process_name,input_dir=prev_step.output_dir,output_dir=output_dir,**kwargs)
+            self.output_vcf = os.path.join(output_dir,self.sample_key + ".vcf");
             self.ref_fa = ref_fa
             self.dbsnp_vcf = dbsnp_vcf
             qc_dir = re.sub(r"gatk_ug$","qc",self.output_dir)

@@ -106,7 +106,7 @@ def begin_indel_realignment(configs,mockdb,pipeline,step_objects,prev_step_key,*
 
 def begin_base_recalibration(configs,mockdb,pipeline,step_objects,prev_step_key,**kwargs):
     sample = mockdb['Sample'].__get__(configs['system'],pipeline.sample_key)
-    base_recalibration = mockdb['BaseRecalibration'].__new__(configs['system'],sample=sample,prev_step=step_objects[prev_step_key],ref_fa=step_objects["bwa_aln"].ref_fa,dbsnp_vcf=step_objects["indel_realignment"],**kwargs)
+    base_recalibration = mockdb['BaseRecalibration'].__new__(configs['system'],sample=sample,prev_step=step_objects[prev_step_key],ref_fa=step_objects["bwa_aln"].ref_fa,dbsnp_vcf=step_objects["indel_realignment"].dbsnp_vcf,**kwargs)
     pipeline.base_recalibration_key = base_recalibration.key
     base_recalibration.__fill_qsub_file__(configs)
     base_recalibration.__launch__(configs['system'])
@@ -114,7 +114,7 @@ def begin_base_recalibration(configs,mockdb,pipeline,step_objects,prev_step_key,
 
 def begin_unified_genotyper(configs,mockdb,pipeline,step_objects,prev_step_key,**kwargs):
     sample = mockdb['Sample'].__get__(configs['system'],pipeline.sample_key)
-    unified_genotyper = mockdb['UnifiedGenotyper'].__new__(configs['system'],sample=sample,prev_step=step_objects[prev_step_key],ref_fa=step_objects["bwa_aln"].ref_fa,dbsnp_vcf=step_objects["indel_realignment"],**kwargs)
+    unified_genotyper = mockdb['UnifiedGenotyper'].__new__(configs['system'],sample=sample,prev_step=step_objects[prev_step_key],ref_fa=step_objects["bwa_aln"].ref_fa,dbsnp_vcf=step_objects["indel_realignment"].dbsnp_vcf,**kwargs)
     pipeline.unified_genotyper_key = unified_genotyper.key
     unified_genotyper.__fill_qsub_file__(configs)
     unified_genotyper.__launch__(configs['system'])
@@ -216,23 +216,24 @@ def things_to_do_if_starting_pipeline(configs,mockdb,pipeline):
     if configs["pipeline"].has_option("Pipeline","steps"): #New interface for allowing external definition of linear pipelines
         step_order, step_objects = pipeline.__steps_to_objects__(configs["system"],configs["pipeline"],mockdb)
         first_step = step_order[0]
-        step_objects = begin_next_step(configs,mockdb,pipeline,step_objects,first_step,None)
-        zcat = step_objects["zcat_multiple"]
-    else:
-        section_header = pipeline.running_location + '_directories'
-        base_output_dir = configs['system'].get(section_header,'bcbio_output')
-        try:
-            project_out = re.sub('_','-',pipeline.project)
-            if re.search("[0-9]",project_out[0:1]):
-                project_out = "Project-" + project_out
-            date=datetime.date.today().strftime("%Y%m%d")
-            output_dir = os.path.join(base_output_dir,project_out + "_" + sample.key + '_' + str(date))
-            zcat = mockdb['Zcat'].__new__(configs['system'],sample=sample,input_dir=pipeline.input_dir,base_output_dir=base_output_dir,output_dir=output_dir,date=date)
-        except AttributeError:
-            zcat = mockdb['Zcat'].__new__(configs['system'],sample=sample,input_dir=pipeline.input_dir,base_output_dir=base_output_dir)
-        zcat.__fill_qsub_file__(configs['system'])
-        pipeline.zcat_key = zcat.key
-        zcat.__launch__(configs['system'])
+        if first_step == "zcat_multiple":
+            step_objects = begin_next_step(configs,mockdb,pipeline,step_objects,first_step,None)
+            pipeline.state = 'Running'
+            return 1
+    section_header = pipeline.running_location + '_directories'
+    base_output_dir = configs['system'].get(section_header,'bcbio_output')
+    try:
+        project_out = re.sub('_','-',pipeline.project)
+        if re.search("[0-9]",project_out[0:1]):
+            project_out = "Project-" + project_out
+        date=datetime.date.today().strftime("%Y%m%d")
+        output_dir = os.path.join(base_output_dir,project_out + "_" + sample.key + '_' + str(date))
+        zcat = mockdb['Zcat'].__new__(configs['system'],sample=sample,input_dir=pipeline.input_dir,base_output_dir=base_output_dir,output_dir=output_dir,date=date)
+    except AttributeError:
+        zcat = mockdb['Zcat'].__new__(configs['system'],sample=sample,input_dir=pipeline.input_dir,base_output_dir=base_output_dir)
+    zcat.__fill_qsub_file__(configs['system'])
+    pipeline.zcat_key = zcat.key
+    zcat.__launch__(configs['system'])
     pipeline.state = 'Running'
     return 1
 

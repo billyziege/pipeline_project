@@ -44,6 +44,7 @@ def fill_standard_fields(input_string,dictionary):
     output_string = input_string
     fields = clean_fields(find_standard_fields(input_string),"FIELD");
     for k in fields:
+        sys.stderr.write(str(k)+"\n")
         output_string, number = re.subn("FIELDBEGIN " + k + " FIELDEND",dictionary[k],output_string)
     return output_string
 

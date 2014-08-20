@@ -216,7 +216,7 @@ def advance_running_std_pipeline(configs,storage_devices,pipeline,mockdb):
         raise FormattingError("The pipeline somehow began running before zcatting.")
     if pipeline.bcbio_key == None: #bcbio hasn't begun
         zcat = mockdb['Zcat'].__get__(configs['system'],key=int(pipeline.zcat_key))
-        if zcat.__is_complete__(configs):
+        if zcat.__is_complete__():
             things_to_do_if_zcat_complete(configs,mockdb,pipeline,zcat)
         return 1
     if pipeline.cleaning_key is None: #cleaning hasn't begun

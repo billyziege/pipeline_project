@@ -45,7 +45,7 @@ class Zcat(SampleQsubProcess):
         with open(self.qsub_file,'w') as f:
             f.write(fill_template(template_file,dictionary))
 
-    def __is_complete__(self,configs):
+    def __is_complete__(self):
         """
         Check to the complete file of the zcat process and handles notifications (if any).
         """

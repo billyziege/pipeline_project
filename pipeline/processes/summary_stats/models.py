@@ -28,7 +28,20 @@ class SummaryStats(SampleQsubProcess):
         output_dir = os.path.join(bcbio.output_dir, "qc/"+str(bcbio.description))
         SampleQsubProcess.__init__(self,config,key=key,sample=sample,input_dir=input_dir,output_dir=output_dir,process_name=process_name,**kwargs)
         self.snp_path = bcbio.snp_path
+        if not os.path.isfile(self.snp_path) and bcbio.key != -1:
+            snp_dir = os.path.dirname(self.snp_path)
+            for file in os.listdir(snp_dir):
+                if file.endswith("combined-effects.vcf"):
+                    self.snp_path = os.path.join(snp_dir,file)
         self.bam_path = bcbio.analysis_ready_bam_path
+        if self.bam_path is None and not bcbio.description is None:
+            bam_path = os.path.join(bcbio.output_dir,"bamprep/"+bcbio.description)
+            for file in os.listdir(bam_path):
+                if file.endswith("-sort-prep.bam"):
+                    self.bam_path = os.path.join(bam_path,file)
+                    break
+            if self.bam_path is None:
+                raise Exception("The previous process didn't finish correctly.")
         self.systems_file = bcbio.systems_file
         self.ref_path = get_genome_ref(bcbio.sample_file,bcbio.systems_file)
         if self.ref_path is None:
@@ -87,7 +100,15 @@ class SummaryStats(SampleQsubProcess):
             return True
         elif not os.path.isfile(self.complete_file):
             return False
+        if os.stat(self.summary_stats_path)[6]==0:
+            os.remove(self.complete_file)
+            self.__launch__(configs['system'])
+            return False
+        if configs["system"].get("Logging","debug") is "True":
+            print "  Storing stats" 
         store_summary_stats_in_db(self)
+        if configs["system"].get("Logging","debug") is "True":
+            print "  Finishing." 
         self.__finish__()
         return True
 
