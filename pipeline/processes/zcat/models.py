@@ -14,23 +14,23 @@ class Zcat(SampleQsubProcess):
     Manage and stores info for the Zcat process.  This is the process that decompresses and moves fastq files from storage to the processing directories. 
     """
 
-    def __init__(self,config,key=int(-1),process_name='zcat',**kwargs):
+    def __init__(self,config,process_name='zcat',**kwargs):
         """
         Initializes the zcat process object.
         """
-        SampleQsubProcess.__init__(self,config,key=key,process_name=process_name,**kwargs)
-        r1_fname = self.sample_key + '_R1.fastq'
-        r2_fname = self.sample_key + '_R2.fastq'
+        SampleQsubProcess.__init__(self,config,process_name=process_name,**kwargs)
+        extension = ''
+        r1_fname = self.sample_key + '_R1.fastq' + extension
+        r2_fname = self.sample_key + '_R2.fastq' + extension
         self.r1_path = os.path.join(self.output_dir,r1_fname)
         self.r2_path = os.path.join(self.output_dir,r2_fname)
 
-    def __fill_qsub_file__(self,config):
+    def __fill_qsub_file__(self,configs):
         """
         Fills the qsub file from a template.  Since not all information is archived in the parent object, 
         the function also gets additional information on the fly for the qsub file.
         """
-        template_file= os.path.join(config.get('Common_directories','template'),'zcat.template')
-        print self.input_dir
+        template_file= os.path.join(configs['system'].get('Common_directories','template'),configs['pipeline'].get('Template_files',self.process_name))
         r1_list = [ os.path.join(self.input_dir,f) for f in os.listdir(self.input_dir) if re.search("R1[\.,\w]*\.fastq",f) ]
         r1_list.sort()
         list_of_r1_files = " ".join(r1_list)
@@ -84,6 +84,12 @@ class Zcat(SampleQsubProcess):
         SampleQsubProcess.__launch__(self,config)
         #SampleQsubProcess.__launch__(self,config,node_list=node_list,queue_name='single')
         return True
+
+class Cat(Zcat):
+    def __init__(self,config,process_name='cat',**kwargs):
+        Zcat.__init__(self,config,process_name=process_name,**kwargs)
+        self.r1_path = self.r1_path + '.gz'
+        self.r2_path = self.r2_path + '.gz'
 
 class ZcatMultiple(SampleQsubProcess):
     """

@@ -73,29 +73,18 @@ else:
 #Advance the running pipelines.  If a step is done, preceed to the next.  If the pipeline is done, complete it.
 if system_config.get("Logging","debug") is "True":
     print "Advancing"
-configs.update({'pipeline':pipeline_config['QualityControlPipeline']})
-advance_running_qc_pipelines(configs,storage_devices,mockdb)
-configs.update({'pipeline':pipeline_config['StandardPipeline']})
-advance_running_std_pipelines(configs,storage_devices,mockdb,'StandardPipeline')
-configs.update({'pipeline':pipeline_config['MHCPipeline']})
-advance_running_std_pipelines(configs,storage_devices,mockdb,'MHCPipeline')
-configs.update({'pipeline':pipeline_config['RD2Pipeline']})
-advance_running_std_pipelines(configs,storage_devices,mockdb,'RD2Pipeline')
-configs.update({'pipeline':pipeline_config['DevelPipeline']})
-advance_running_std_pipelines(configs,storage_devices,mockdb,'DevelPipeline')
-configs.update({'pipeline':pipeline_config['BBPipeline']})
-advance_running_std_pipelines(configs,storage_devices,mockdb,'BBPipeline')
-configs.update({'pipeline':pipeline_config['KanePipeline']})
-advance_running_std_pipelines(configs,storage_devices,mockdb,'KanePipeline')
-configs.update({'pipeline':pipeline_config['NGv3PlusPipeline']})
-advance_running_std_pipelines(configs,storage_devices,mockdb,'NGv3PlusPipeline')
-configs.update({'pipeline':pipeline_config['TCSPipeline']})
-if system_config.get("Logging","debug") is "True":
-    print "Advancing TCS"
-advance_running_std_pipelines(configs,storage_devices,mockdb,'TCSPipeline')
+for pipeline_name in pipeline_config.keys():
+    if system_config.get("Logging","debug") is "True":
+        print "Advancing " + pipeline_name
+    if pipeline_name == 'QualityControlPipeline':
+        configs.update({'pipeline':pipeline_config['QualityControlPipeline']})
+        advance_running_qc_pipelines(configs,storage_devices,mockdb)
+    else:
+        configs.update({'pipeline':pipeline_config[pipeline_name]})
+        advance_running_std_pipelines(configs,storage_devices,mockdb,pipeline_name)
 
-#The remaining pipeline are taking up storage.  Account for this
-add_running_storage(configs['system'],storage_devices,mockdb)
+#The remaining pipeline are taking up storage.  I used to account for this, but no longer.  This can be added back in, but needs a little work.
+#add_running_storage(configs['system'],storage_devices,mockdb)
 
 #If there is enough space, move the next pipeline into the queue
 for pipeline_name in pipeline_config:

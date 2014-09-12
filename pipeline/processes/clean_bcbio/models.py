@@ -22,3 +22,15 @@ class CleanBcbio(SampleQsubProcess):
 
     def __is_complete__(self,configs=None):
         return SampleQsubProcess.__is_complete__(self)
+
+class Clean(SampleQsubProcess):
+    """
+    Runs the clean process that removes superfluous information in the
+    run directory and moves the result back to storage and output directory. 
+    """
+
+    def __init__(self,config,process_name='clean',**kwargs):
+        SampleQsubProcess.__init__(self,config,process_name=process_name,**kwargs)
+
+    def __is_complete__(self,configs=None):
+        return SampleQsubProcess.__is_complete__(self)

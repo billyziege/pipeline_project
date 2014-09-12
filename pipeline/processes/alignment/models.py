@@ -36,7 +36,7 @@ class BwaAln(SampleQsubProcess):
  
 class BwaSampe(SampleQsubProcess):
     """
-    Prepares the bwa sampe process
+    Prepares the bwa sampe process for paired end samples only.
     """
 
     def __init__(self,config,key=int(-1),sample=None,process_name='bwa_sampe',multi_fastq_file=None,ref_fa='/mnt/speed/qc/sequencing/biodata/genomes/Hsapiens/GRCh37/bwa/GRCh37.fa',prev_step=None,project=None,**kwargs):

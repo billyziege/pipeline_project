@@ -100,13 +100,14 @@ class QsubProcess(GenericProcess):
         self.job_id = None
         self.fail_report = False
 
-    def __launch__(self,config,qsub_file=None,node_list=None,queue_name=None):
+    def __launch__(self,config,command=None,qsub_file=None,node_list=None,queue_name=None):
         """
         Sends the job to SGE and records pertinent information.
         """
         if os.path.isfile(self.complete_file):
             os.remove(self.complete_file)
-        command = ['qsub']
+        if command is None:
+            command = ['qsub']
         if not node_list is None:
             try:
                 node = grab_good_node(config,node_list=node_list)
@@ -141,7 +142,6 @@ class QsubProcess(GenericProcess):
         if GenericProcess.__is_complete__(self) is False:
             complete_files = self.complete_file.split(":")
             for complete_file in complete_files:
-                sys.stderr.write("Complete file: "+complete_file+"\n")
                 if os.path.isfile(complete_file):
                     continue
                 return False
@@ -214,7 +214,6 @@ class Bam2BamQsubProcess(SampleQsubProcess):
     def __is_complete__(self):
         if QsubProcess.__is_complete__(self):
             for output_bam in self.output_bam.split(":"):
-                sys.stderr.write("Output bam: "+output_bam+"\n")
                 if not os.path.isfile(output_bam):
                     return False
             return True
@@ -367,8 +366,9 @@ class StandardPipeline(GenericProcess):
         step_order, step_objects = self.__steps_to_objects__(configs["system"],configs["pipeline"],mockdb)
         prev_step_key = step_order[0]
         for current_step_key in step_order[1:]:
-            print current_step_key
-            if step_objects[current_step_key] is None: #This means the current step hasn't begun (and is really the next step)
+            if configs["system"].get("Logging","debug") is "True":
+                print current_step_key
+            if step_objects[current_step_key] is None: #This means the variable name in "current step" hasn't begun (and is really the next step)
                 if configs["system"].get("Logging","debug") is "True":
                     print "  Checking to see if this process should begin" 
                 is_complete = False
@@ -682,10 +682,11 @@ class KanePipeline(StandardPipeline):
 
 class NGv3PlusPipeline(StandardPipeline):
 
-    def __init__(self,config,key=int(-1),sample=None,barcode=None,flowcell=None,description=None,recipe=None,input_dir=None,base_output_dir=None,date=strftime("%Y%m%d",localtime()),time=strftime("%H:%M:%S",localtime()),process_name='ngv3pluspipeline',sequencing_run=None,running_location='Speed',storage_needed=500000000,project=None,**kwargs):
+    def __init__(self,config,key=int(-1),sample=None,barcode=None,flowcell=None,description=None,recipe=None,input_dir=None,base_output_dir=None,date=strftime("%Y%m%d",localtime()),time=strftime("%H:%M:%S",localtime()),process_name='ngv3pluspipeline',sequencing_run=None,running_location='Speed',storage_needed=500000000,project=None,capture_target_bed=None,**kwargs):
         StandardPipeline.__init__(self,config,key,sample,barcode,flowcell,description,recipe,input_dir,base_output_dir,date,time,process_name,sequencing_run,running_location,storage_needed,project,**kwargs)
         self.summary_stats_key = None
         self.cp_to_results_key = None
+        self.capture_target_bed = capture_target_bed
 
 class TCSPipeline(StandardPipeline):
 
@@ -725,3 +726,9 @@ class TCSPipeline(StandardPipeline):
         self.altered_parameters = altered_parameters
         for step in pipeline_steps:
             setattr(self,step+"_key",None)
+
+class FastQCPipeline(StandardPipeline):
+
+    def __init__(self,config,process_name='fastqcpipeline',**kwargs):
+        StandardPipeline.__init__(self,config,process_name=process_name,**kwargs)
+

@@ -50,6 +50,6 @@ def convert_attribute_value_to_array(input_string):
       [value1:value2:value3] which is a 1 dimensional array of 3 values.
     This function converts such a string value to an appropriate nested list.
     """
-    return input_string.split(":")
+    return str(input_string).split(":")
     
 

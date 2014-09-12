@@ -14,7 +14,7 @@ class Bcbio(SampleQsubProcess):
     Manages and stores information for the bcbio process.  This process runs the fastq to vcf conversion implemented by Brad Chapmann.
     """
 
-    def __init__(self,config,key=int(-1),sample=None,flowcell=None,base_output_dir=None,r1_path=None,r2_path=None,description=None,upload_dir=None,process_name='bcbio',**kwargs):
+    def __init__(self,config,key=int(-1),sample=None,flowcell=None,base_output_dir=None,r1_path=None,r2_path=None,description=None,upload_dir=None,process_name='bcbio',capture_target_bed=None,**kwargs):
         """
         Initializes the bcbio process object.
         """
@@ -40,12 +40,12 @@ class Bcbio(SampleQsubProcess):
             bcbio_lane_name = sample_yaml["details"][0]["lane"]
         except KeyError: 
             bcbio_lane_name = None
-        try:
-            bait_bed = sample_yaml["details"][0]["algorithm"]["hybrid_bait"]
-        except KeyError: 
+        if not capture_target_bed is None:
+            bait_bed = capture_target_bed
+        else: 
             try:
-                bait_bed=config.get('References','capture_target_bed')
-            except:
+                bait_bed = sample_yaml["details"][0]["algorithm"]["hybrid_bait"]
+            except KeyError: 
                 bait_bed = None
         #exit(str(bcbio_lane_name)+"\n")
         if bait_bed is None:
@@ -182,4 +182,12 @@ class Bcbio(SampleQsubProcess):
         subject = fill_template(template_subject,self.__dict__)
         body = fill_template(template_body, self.__dict__)
         return subject, body
+
+    def __launch__(self,config,command=None,**kwargs):
+        """
+        Sends the job to SGE and records pertinent information.
+        """
+        if command is None:
+            command = ['sleep 30;','qsub']
+        return SampleQsubProcess.__launch__(self,config,command=command,**kwargs)
 

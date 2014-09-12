@@ -44,8 +44,7 @@ def fill_standard_fields(input_string,dictionary):
     output_string = input_string
     fields = clean_fields(find_standard_fields(input_string),"FIELD");
     for k in fields:
-        sys.stderr.write(str(k)+"\n")
-        output_string, number = re.subn("FIELDBEGIN " + k + " FIELDEND",dictionary[k],output_string)
+        output_string, number = re.subn("FIELDBEGIN " + k + " FIELDEND",str(dictionary[k]),output_string)
     return output_string
 
 def fill_array_fields(input_string,dictionary):
@@ -64,7 +63,7 @@ def fill_array_fields(input_string,dictionary):
             values = convert_attribute_value_to_array(dictionary[field]) 
             for value in values:      
                 replacement_list.append(re.sub(r"ARRAYVARIABLEASSIGNMENTBEGIN\s+" + field + r"\s+ARRAYVARIABLEASSIGNMENTEND",value,cleaned_content))
-        output_string = re.sub(cleaned_content," ".join(replacement_list),output_string)
+        output_string = re.sub(re.escape(cleaned_content)," ".join(replacement_list),output_string)
     output_string, number = re.subn(r"ARRAYVARIABLEASSIGNMENTBEGIN\s+","",output_string)
     output_string, number = re.subn(r"\s+ARRAYVARIABLEASSIGNMENTBEGIN","",output_string)
     return output_string
@@ -81,15 +80,17 @@ def fill_task_fields(input_string,dictionary):
         fields = clean_fields(find_standard_fields(cleaned_content),"FIELD");
         replacement_list = []
         for task_number in range(dictionary["number_tasks"]):
-            dictionary["task_position_id"] = task_number
             temp_dict = {}
+            temp_dict["task_position_id"] = str(int(task_number) + 1)
             for field in fields:
+                if field == "task_position_id":
+                    continue
                 values = convert_attribute_value_to_array(dictionary[field]) 
                 temp_dict[field] = values[task_number]
             replacement_list.append(fill_standard_fields(cleaned_content,temp_dict))
-        output_string = re.sub(cleaned_content,"\n".join(replacement_list),output_string)
+        output_string = re.sub(re.escape(cleaned_content),"\n".join(replacement_list),output_string)
     output_string, number = re.subn(r"TASKVARIABLEASSIGNMENTBEGIN\s+","",output_string)
-    output_string, number = re.subn(r"\s+TASKVARIABLEASSIGNMENTBEGIN","",output_string)
+    output_string, number = re.subn(r"\s+TASKVARIABLEASSIGNMENTEND","",output_string)
     return output_string
             
 def fill_template(template_file,dictionary):
