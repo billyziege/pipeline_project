@@ -62,10 +62,10 @@ def fill_array_fields(input_string,dictionary):
         for field in fields: #There can only be 1.
             values = convert_attribute_value_to_array(dictionary[field]) 
             for value in values:      
-                replacement_list.append(re.sub(r"ARRAYVARIABLEASSIGNMENTBEGIN\s+" + field + r"\s+ARRAYVARIABLEASSIGNMENTEND",value,cleaned_content))
+                replacement_list.append(re.sub(r"FIELDBEGIN\s+" + field + r"\s+FIELDEND",value,cleaned_content))
         output_string = re.sub(re.escape(cleaned_content)," ".join(replacement_list),output_string)
     output_string, number = re.subn(r"ARRAYVARIABLEASSIGNMENTBEGIN\s+","",output_string)
-    output_string, number = re.subn(r"\s+ARRAYVARIABLEASSIGNMENTBEGIN","",output_string)
+    output_string, number = re.subn(r"\s+ARRAYVARIABLEASSIGNMENTEND","",output_string)
     return output_string
             
 def fill_task_fields(input_string,dictionary):
