@@ -1,0 +1,6 @@
+#List of required python packages.
+argparse
+mako
+pytz
+reportlab
+testtable
