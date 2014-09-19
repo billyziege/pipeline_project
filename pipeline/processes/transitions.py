@@ -9,7 +9,7 @@ from processes.hiseq.sequencing_run import determine_run_type
 from manage_storage.scripts import identify_running_location_with_most_currently_available
 from manage_storage.disk_queries import disk_usage
 from demultiplex_stats.fill_demultiplex_stats import fill_demultiplex_stats
-from processes.snp_stats.extract_stats import store_snp_stats_in_db, store_search_stats_in_db
+from processes.summary_stats.extract_stats import store_snp_stats_in_db, store_search_stats_in_db
 from processes.pipeline.extract_stats import store_stats_in_db
 from sge_email.scripts import send_email
 from processes.hiseq.multi_fastq import create_multi_fastq_yaml
@@ -26,7 +26,7 @@ def begin_zcat_multiple(configs,mockdb,pipeline,step_objects,**kwargs):
     if re.search("[0-9]",project_out[0:1]):
         project_out = "Project-" + project_out
     section_header = pipeline.running_location + '_directories'
-    base_output_dir = configs['system'].get(section_header,'working_directory')
+    base_output_dir = configs['pipeline'].get(section_header,'working_directory')
     date=datetime.date.today().strftime("%Y%m%d")
     output_dir = os.path.join(base_output_dir,project_out + "_" + sample.key + '_' + str(date))
     if not os.path.isdir(output_dir) and not re.search('dummy',output_dir):
@@ -45,7 +45,7 @@ def begin_cat(configs,mockdb,pipeline,step_objects,**kwargs):
     if re.search("[0-9]",project_out[0:1]):
         project_out = "Project-" + project_out
     section_header = pipeline.running_location + '_directories'
-    base_output_dir = configs['system'].get(section_header,'working_directory')
+    base_output_dir = configs['pipeline'].get(section_header,'working_directory')
     date=datetime.date.today().strftime("%Y%m%d")
     output_dir = os.path.join(base_output_dir,project_out + "_" + sample.key + '_' + str(date))
     if not os.path.isdir(output_dir) and not re.search('dummy',output_dir):
@@ -151,7 +151,7 @@ def begin_bcbio(configs,mockdb,pipeline,step_objects,**kwargs):
     sample = mockdb['Sample'].__get__(configs['system'],pipeline.sample_key)
     flowcell = mockdb['Flowcell'].__get__(configs['system'],pipeline.flowcell_key)
     section_header = pipeline.running_location + '_directories'
-    base_output_dir = configs['system'].get(section_header,'bcbio_output')
+    base_output_dir = configs['pipeline'].get(section_header,'working_directory')
     try:
         capture_target_bed = pipeline.capture_target_bed
     except:
@@ -273,7 +273,7 @@ def things_to_do_if_starting_pipeline(configs,mockdb,pipeline):
             pipeline.state = 'Running'
             return 1
     section_header = pipeline.running_location + '_directories'
-    base_output_dir = configs['system'].get(section_header,'bcbio_output')
+    base_output_dir = configs['pipeline'].get(section_header,'working_directory')
     try:
         project_out = re.sub('_','-',pipeline.project)
         if re.search("[0-9]",project_out[0:1]):
@@ -310,7 +310,7 @@ def things_to_do_if_sequencing_run_is_complete(configs,storage_devices,mockdb,se
         running_location = identify_running_location_with_most_currently_available(configs,storage_devices)
         parsed = parse_sample_sheet(configs['system'],mockdb,sample_dirs[sample][0])
         if (re.search('MSBP$',parsed['description']) and (pipeline_name == 'QualityControlPipeline')):
-            base_output_dir = configs['pipeline'].get('Common_directories','bcbio_upload')
+            base_output_dir = configs['pipeline'].get('Common_directories','archive_directory')
             pipeline = mockdb['QualityControlPipeline'].__new__(configs['system'],input_dir=sample_dir[sample][0],base_output_dir=base_output_dir,sequencing=seq_run,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
             #backup = mockdb['Backup'].__new__(config,sample=parsed['sample'],input_dir=sample_dir)
             #backup.__fill_qsub_file__(config)
@@ -322,19 +322,19 @@ def things_to_do_if_sequencing_run_is_complete(configs,storage_devices,mockdb,se
                 report = mockdb['FlowcellStatisticsReports'].__new__(configs['system'],flowcell=flowcell,seq_run=seq_run)
             report.__add_pipeline__(pipeline)
         elif (re.search('NGv3$',parsed['description']) and (pipeline_name == 'StandardPipeline')):
-            base_output_dir = configs['pipeline'].get('Common_directories','bcbio_upload')
+            base_output_dir = configs['pipeline'].get('Common_directories','archive_directory')
             mockdb['StandardPipeline'].__new__(configs['system'],input_dir=sample_dirs[sample][0],base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
         elif (pipeline_name == 'FastQCPipeline'):
-            base_output_dir = configs['pipeline'].get('Common_directories','bcbio_upload')
+            base_output_dir = configs['pipeline'].get('Common_directories','archive_directory')
             mockdb['FastQCPipeline'].__new__(configs['system'],input_dir=sample_dirs[sample][0],base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
         elif (re.search('MHC$',parsed['description']) and (pipeline_name == 'MHCPipeline')):
-            base_output_dir = configs['pipeline'].get('Common_directories','bcbio_upload')
+            base_output_dir = configs['pipeline'].get('Common_directories','archive_directory')
             mockdb['MHCPipeline'].__new__(configs['system'],input_dir=sample_dirs[sample][0],base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
         elif (re.search('NGv3plusUTR$',parsed['description']) and (pipeline_name == 'NGv3PlusPipeline')):
-            base_output_dir = configs['pipeline'].get('Common_directories','bcbio_upload')
+            base_output_dir = configs['pipeline'].get('Common_directories','archive_directory')
             pipeline = mockdb['NGv3PlusPipeline'].__new__(configs['system'],input_dir=sample_dirs[sample][0],base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],capture_target_bed=target_config.get("Pipeline",'NGv3plusUTR'),**parsed)
         elif (re.search('MLEZHX1$',parsed['description']) and (pipeline_name == 'NGv3PlusPipeline')):
-            base_output_dir = configs['pipeline'].get('Common_directories','bcbio_upload')
+            base_output_dir = configs['pipeline'].get('Common_directories','archive_directory')
             pipeline = mockdb['NGv3PlusPipeline'].__new__(configs['system'],input_dir=sample_dirs[sample][0],base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],capture_target_bed=target_config.get("Pipeline",'MLEZHX1'),**parsed)
     return 1
 
@@ -346,7 +346,7 @@ def things_to_do_if_initializing_pipeline_with_input_directory(configs,storage_d
         running_location = identify_running_location_with_most_currently_available(configs,storage_devices)
         parsed = parse_sample_sheet(configs['system'],mockdb,sample_dirs[sample][0])
         if base_output_dir is None:
-           base_output_dir = configs['pipeline'].get('Common_directories','bcbio_upload')
+           base_output_dir = configs['pipeline'].get('Common_directories','archive_directory')
         if (re.search('MSBP$',parsed['description']) and (pipeline_name == 'QualityControlPipeline')):
             pipeline = mockdb['QualityControlPipeline'].__new__(configs['system'],input_dir=sample_dirs[sample][0],base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
         elif (re.search('NGv3$',parsed['description']) and (pipeline_name == 'StandardPipeline')):
