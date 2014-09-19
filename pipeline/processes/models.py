@@ -72,7 +72,7 @@ class QsubProcess(GenericProcess):
         self.input_dir = input_dir
         if output_dir is None:
             if base_output_dir is None:
-                base_output_dir = config.get('Common_directories','bcbio_output')
+                base_output_dir = config.get('Common_directories','base_working_directory')
             self.output_dir = base_output_dir
         else:
             self.output_dir = output_dir
@@ -187,7 +187,7 @@ class SampleQsubProcess(QsubProcess):
         self.sample_key = sample.key
         if output_dir is None:
             if base_output_dir is None:
-                base_output_dir = config.get('Common_directories','bcbio_output')
+                base_output_dir = config.get('Common_directories','base_working_directory')
             self.output_dir = os.path.join(base_output_dir,self.sample_key + '_' + str(date))
         else:
             self.output_dir = output_dir
@@ -246,8 +246,6 @@ class QualityControlPipeline(GenericProcess):
         self.running_location = running_location
         self.date = date
         self.project = project
-        #if base_output_dir == None:
-        #    base_output_dir = config.get('Common_directories','bcbio_upload')
         if project is None:
             if not base_output_dir is None:
                 self.output_dir = os.path.join(base_output_dir,sample.key + '_' + str(date))

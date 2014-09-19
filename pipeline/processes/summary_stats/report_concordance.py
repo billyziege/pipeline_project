@@ -7,9 +7,9 @@ import argparse
 SAMPLE_LIST_DIRS='/mnt/iscsi_space/zerbeb/affy_samples/msbp,/mnt/iscsi_space/zerbeb/affy_samples/GERA,/mnt/coldstorage/open-transfers/affy_samples/GO'
 
 #Perl scripts
-EXTRACT_SAMPLE_SCRIPT='/mnt/iscsi_space/zerbeb/qc_pipeline_project/qc_pipeline/processes/snp_stats/extract_sample_list.pl'
-TRANSLATE_AND_FILTER_SCRIPT = '/mnt/iscsi_space/zerbeb/qc_pipeline_project/qc_pipeline/processes/snp_stats/translate_snp_call_while_filtering_from_bed.pl'
-VCF_CONVERSION_SCRIPT = '/mnt/iscsi_space/zerbeb/qc_pipeline_project/qc_pipeline/processes/snp_stats/report_snp_vcf_while_filtering_from_bed.pl'
+EXTRACT_SAMPLE_SCRIPT='/mnt/iscsi_space/zerbeb/qc_pipeline_project/qc_pipeline/processes/summary_stats/extract_sample_list.pl'
+TRANSLATE_AND_FILTER_SCRIPT = '/mnt/iscsi_space/zerbeb/qc_pipeline_project/qc_pipeline/processes/summary_stats/translate_snp_call_while_filtering_from_bed.pl'
+VCF_CONVERSION_SCRIPT = '/mnt/iscsi_space/zerbeb/qc_pipeline_project/qc_pipeline/processes/summary_stats/report_snp_vcf_while_filtering_from_bed.pl'
 
 #Files
 FILTER_FILE = '/mnt/iscsi_space/zerbeb/data/affy_on_exome.bed'
