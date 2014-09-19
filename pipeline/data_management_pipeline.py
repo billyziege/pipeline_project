@@ -13,7 +13,7 @@ parser = argparse.ArgumentParser(description='Manages data and submits new jobs.
 parser.add_argument('-i', dest='source_dir', nargs='+', help='fastq source', default=None)
 parser.add_argument('-o', dest='dest_dir', help='vcf destination', default=None)
 parser.add_argument('-p', '--pipeline', dest='pipeline', help='The version of the pipeline', default='QualityControlPipeline')
-parser.add_argument('--system_config', dest='system_config_file', help='The system configuration file', default='/home/sequencing/src/pipeline_project/pipeline/config/ihg_system.cfg')
+parser.add_argument('--system_config', dest='system_config_file', help='The system configuration file', default='/home/sequencing/src/devel_pipeline/pipeline/config/ihg_system.cfg')
 parser.add_argument('-d', '--debug', dest='debug', action='store_true', help='Turn debugging on', default=False)
 options = parser.parse_args()
 if options.debug is True:
