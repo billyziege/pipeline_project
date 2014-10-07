@@ -5,7 +5,7 @@ import sys
 import re
 import ConfigParser
 from mockdb.initiate_mockdb import initiate_mockdb, save_mockdb
-from processes.parsing import parse_sequencing_run_dir, get_sequencing_run_base_dir, table_reader
+from processes.parsing import parse_sequencing_run_dir, get_sequencing_run_base_dir
 from demultiplex_stats.extract_stats import extract_barcode_lane_stats, calculate_lane_total, calculate_weighted_percent
 
 
@@ -58,7 +58,7 @@ def determine_run_type(directory):
     samplesheet_file = os.path.join(base_dir,"SampleSheet.csv")
     if not os.path.isfile(samplesheet_file):
         return None
-    table = table_reader(samplesheet_file)
+    sample_sheet_table =  csv.DictReader(open(sample_sheet_file,delimiter=',')
     try:
         lane_numbers = set([row['Lane'] for row in table])
         if len(lane_numbers) == 2:

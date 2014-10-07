@@ -46,24 +46,27 @@ if system_config.get("Logging","debug") is "True":
     print "Add waiting storage"
 for pipeline_name in pipeline_config.keys():
     add_waiting_storage(pipeline_config[pipeline_name],storage_devices,mockdb,pipeline_name)
-#Either maintain mockdbs and identify new directories or simply import directories
+
+#Maintain sequencing run through new directory identification
+if system_config.get("Logging","debug") is "True":
+    print "Analyzing sequencing dir"
+maintain_sequencing_run_objects(system_config,mockdb)
+if system_config.get("Logging","debug") is "True":
+    print "Initializing finished dirs"
+#Start and finish casava
+initialize_casava_for_finished_sequencing_runs(configs,storage_devices,mockdb)
+#Identify new directories or push the results of casava (fastq) into the appropriate pipeline
 if options.source_dir != None and options.dest_dir != None:
     if system_config.get("Logging","debug") is "True":
         print "Adding source dir to pipeline"
     configs.update({'pipeline':pipeline_config[options.pipeline]})
     things_to_do_if_initializing_pipeline_with_input_directory(configs,storage_devices,mockdb,options.source_dir,base_output_dir=options.dest_dir,pipeline_name=options.pipeline)
 else:
-    if system_config.get("Logging","debug") is "True":
-        print "Analyzing sequencing dir"
-    maintain_sequencing_run_objects(system_config,mockdb)
-    if system_config.get("Logging","debug") is "True":
-        print "Initializing finished dirs"
     for pipeline_name in pipeline_config.keys():
         if system_config.get("Logging","debug") is "True":
             print "  for pipeline " + pipeline_name
         configs.update({'pipeline':pipeline_config[pipeline_name]})
-        initialize_pipeline_for_finished_sequencing_runs(configs,storage_devices,mockdb,pipeline_name)
-    finish_seq_runs(mockdb)
+    !!push_pipeline_from_finished_casava(configs,storage_devices,mockdb,pipeline_name)
 
 #Complete any backup process that have been initiated by a finished sequencing run.
 #for pipeline_name in pipeline_config.keys():

@@ -274,52 +274,13 @@ class QualityControlPipeline(GenericProcess):
         GenericProcess.__finish__(self,date=date,time=time)
         storage_device.my_use -= self.storage_needed
 
-class StandardPipeline(GenericProcess):
+class GenericPipeline(GenericProcess):
+    """
+    Generalization of any series of processes that follow one another serially.
+    """
 
-    def __init__(self,config,key=int(-1),sample=None,barcode=None,flowcell=None,description=None,recipe=None,input_dir=None,base_output_dir=None,date=strftime("%Y%m%d",localtime()),time=strftime("%H:%M:%S",localtime()),process_name='qcpipeline',sequencing_run=None,running_location='Speed',storage_needed=500000000,project=None,**kwargs):
-        if sample is None:
-            sample = Sample(config,key="dummy_sample_key")
-        if sample.__class__.__name__ != "Sample":
-            raise Exception("Trying to start a qcpipeline process on a non-sample.")
-        if barcode is None:
-            barcode = Barcode(config,key="dummy_barcode_key")
-        if barcode.__class__.__name__ != "Barcode":
-            raise Exception("Trying to start a qcpipeline process on a non-barcode.")
-        #Specific information about this pipeline
-        self.description = description
-        self.recipe = recipe
-        self.storage_needed = storage_needed
-        self.input_dir = input_dir
-        self.running_location = running_location
-        self.date = date
-        if project is None:
-            if base_output_dir is None:
-                base_output_dir = ""
-            self.output_dir = os.path.join(base_output_dir,sample.key + '_' + str(date))
-        else:
-            project_out = re.sub('_','-',project)
-            self.project = project_out
-            if re.search("[0-9]",project_out[0:1]):
-                project_out = "Project-" + project_out
-            if base_output_dir == None:
-                self.output_dir = project_out + "_" + sample.key + '_' + str(date)
-            else:
-                self.output_dir = os.path.join(base_output_dir,project_out + "_" + sample.key + '_' + str(date))
-        if not os.path.exists(self.output_dir) and not re.search('dummy',sample.key):
-            os.makedirs(self.output_dir)
-        if sequencing_run != None:
-            self.sequencing_run_key=seqencing_run.key
-        else:
-            self.sequencing_key=None
+    def __init__(self,config,process_name="generic_pipeline",**kwargs)
         GenericProcess.__init__(self,config,key=key,process_name=process_name,**kwargs)
-        self.sample_key = sample.key
-        self.flowcell_key = barcode.flowcell_key
-        self.barcode_key = barcode.key
-        self.altered_parameters = None
-
-    def __finish__(self,storage_device,date=datetime.date.today().strftime("%Y%m%d"),time=datetime.date.today().strftime("%H:%M")):
-        GenericProcess.__finish__(self,date=date,time=time)
-        storage_device.my_use -= int(self.storage_needed or 0)
 
     def __get_step_key__(self,step):
        """Returns the pipeline key corresponding to a specific step"""
@@ -432,6 +393,56 @@ class StandardPipeline(GenericProcess):
                 flattened_string = key1 + "-" + key2 + ":" + dictionary[key1][key2]
                 output_string += flattened_string
         return output_string
+
+    def __finish__(self,storage_device,date=datetime.date.today().strftime("%Y%m%d"),time=datetime.date.today().strftime("%H:%M")):
+        GenericProcess.__finish__(self,date=date,time=time)
+        storage_device.my_use -= int(self.storage_needed or 0)
+
+class StandardPipeline(GenericPipeline):
+    """
+    Generalization of any post fastq pipeline that requires a sample and a sample sheet.
+    """
+
+    def __init__(self,config,key=int(-1),sample=None,barcode=None,flowcell=None,description=None,recipe=None,input_dir=None,base_output_dir=None,date=strftime("%Y%m%d",localtime()),time=strftime("%H:%M:%S",localtime()),process_name='qcpipeline',sequencing_run=None,running_location='Speed',storage_needed=500000000,project=None,**kwargs):
+        if sample is None:
+            sample = Sample(config,key="dummy_sample_key")
+        if sample.__class__.__name__ != "Sample":
+            raise Exception("Trying to start a qcpipeline process on a non-sample.")
+        if barcode is None:
+            barcode = Barcode(config,key="dummy_barcode_key")
+        if barcode.__class__.__name__ != "Barcode":
+            raise Exception("Trying to start a qcpipeline process on a non-barcode.")
+        #Specific information about this pipeline
+        self.description = description
+        self.recipe = recipe
+        self.storage_needed = storage_needed
+        self.input_dir = input_dir
+        self.running_location = running_location
+        self.date = date
+        if project is None:
+            if base_output_dir is None:
+                base_output_dir = ""
+            self.output_dir = os.path.join(base_output_dir,sample.key + '_' + str(date))
+        else:
+            project_out = re.sub('_','-',project)
+            self.project = project_out
+            if re.search("[0-9]",project_out[0:1]):
+                project_out = "Project-" + project_out
+            if base_output_dir == None:
+                self.output_dir = project_out + "_" + sample.key + '_' + str(date)
+            else:
+                self.output_dir = os.path.join(base_output_dir,project_out + "_" + sample.key + '_' + str(date))
+        if not os.path.exists(self.output_dir) and not re.search('dummy',sample.key):
+            os.makedirs(self.output_dir)
+        if sequencing_run != None:
+            self.sequencing_run_key=seqencing_run.key
+        else:
+            self.sequencing_key=None
+        GenericProcess.__init__(self,config,key=key,process_name=process_name,**kwargs)
+        self.sample_key = sample.key
+        self.flowcell_key = barcode.flowcell_key
+        self.barcode_key = barcode.key
+        self.altered_parameters = None
 
 class MHCPipeline(StandardPipeline):
 
@@ -729,4 +740,38 @@ class FastQCPipeline(StandardPipeline):
 
     def __init__(self,config,process_name='fastqcpipeline',**kwargs):
         StandardPipeline.__init__(self,config,process_name=process_name,**kwargs)
+
+def BclToFastqPipeline(GenericPipeline):
+    """
+    This pipeline calls casava and other scripts to analyze bcl outputs from the HiSeq
+    data directroy producing fastq files.  Additional pipelines are launched once the
+    fastq files are generated.  Also, additional scripts are launched after fastq generation
+    to facilitate the gathering of run statistics.
+    """
+
+    def __init__(self,config,seq_run=None,flowcell_key=None,process_name="bcltofastqpipeline",**kwargs)
+        if not seq_run is None:
+            self.seq_run = seq_run.key
+            self.flowcell_key = flowcell_key
+            self.input_dir = seq_run.output_dir
+            output_name = seq_run.date + "_" + seq_run.machine.key + "_" + seq_run.run_number + "_" + seq_run.side + seq_run.flowcell_key
+            self.output_dir = os.path.join(config.get('Common_directories','casava_output'),output_name)
+            if not os.path.exists(self.output_dir):
+               os.makedirs(self.output_dir)
+
+    def __finish__(self):
+       #Merge the directories.  In a separate qsub function.  Then start other pipelines.  Once the first step is done on other pipelines finish the bcl2fastq pipeline.
+       #Touch the casava finished file in it.
+       #QC metrics.
+       #FastQC pipeline
+       #Link it.
+       #md5.
+       #index_report.
+
+class DnanexusuploadPipeline(GenericPipeline):
+
+    def __init__(self,config,key=-1,input_dir=None,run_qc_metrics_dir=None,flowcell_key=None,process_name='dnanexusuploadpipeline',**kwargs):
+        if not input_dir is None:
+            GenericPipeline.__init__(self,config,key=key,input_dir=input_dir,output_dir=input_dir,process_name=process_name,**kwargs)
+            self.flowcell_key = flowcell_key
 

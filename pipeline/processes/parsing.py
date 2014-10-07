@@ -1,26 +1,28 @@
 import os
 import sys
 import re
-from processes.hiseq.scripts import translate_sample_name, list_sample_dirs, table_reader
+from processes.hiseq.scripts import list_sample_dirs
+from processes.hiseq.sample_sheet import clean_sample_name, clean_index
 
 
 #This function reads the sample sheet into appropriate objects
 def parse_sample_sheet(config,mockdb,directory):
-    table  = table_reader(os.path.join(directory, 'SampleSheet.csv'))
+    table =  csv.DictReader(open(os.path.join(directory, 'SampleSheet.csv'),delimiter=',')
     try:
         samplesheet = table[0]
     except:
         sys.exit("No file SampleSheet.csv in " + directory) 
     parsed = {}
     #sys.stderr.write(str(samplesheet))
-    sample_key = translate_sample_name(samplesheet['SampleID'])
+    #sample_key = translate_sample_name(samplesheet['SampleID'])
+    sample_key = clean_sample_name(samplesheet['SampleID'])
     parsed['project_name'] = samplesheet['SampleProject']
     parsed['sample'] = mockdb['Sample'].__get__(config,key=sample_key)
     flowcell_key = samplesheet['FCID']
     parsed['flowcell'] = mockdb['Flowcell'].__get__(config,key=flowcell_key)
     lane_key = flowcell_key + '_lane_' + samplesheet['Lane']
     parsed['lane'] = mockdb['Lane'].__get__(config,key=lane_key,flowcell=parsed['flowcell'],number=samplesheet['Lane'])
-    barcode_key = lane_key + '_' + samplesheet['Index']
+    barcode_key = lane_key + '_' + clean_index(samplesheet['Index'])
     parsed['barcode'] = mockdb['Barcode'].__get__(config,key=barcode_key,sample=parsed['sample'],lane=parsed['lane'],project=parsed['project_name'],index=samplesheet['Index'])
     description = sample_key + "_" + samplesheet['Description']
     parsed['description'] = description

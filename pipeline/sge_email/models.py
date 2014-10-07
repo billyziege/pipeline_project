@@ -4,19 +4,19 @@ class SGEEmailObject:
         self.sender = 'zerbeb@humgen.ucsf.edu'
         self.sender_name = 'Brandon Zerbe'
         if recipients is None:
-            self.recipients = ['zerbeb@humgen.ucsf.edu','tanglf@humgen.ucsf.edu','KvaleM@humgen.ucsf.edu']
+            self.recipients = ['zerbeb@humgen.ucsf.edu','Dedeepya.Vaka@ucsf.edu','KvaleM@humgen.ucsf.edu']
         else:
             self.recipients = recipients.split(',')
         self.password = 'P@ssword'
         self.usrname = 'ccrjobs'
         self.domain = 'anesthesia.ucsf.edu'
-        self.main_name = 'VCF Pipeline'
+        self.main_name = 'IHG automatic system'
         self.host = 'mail.ucsf.edu'
         self.message = message
         self.subject = subject
         self.ip = '128.218.92.6'
         caveat  = "This is an automatically generated message"
-        caveat += " sent by the automatic variant-calling pipeline.  "
+        caveat += " sent by the IHG automatic system.  "
         caveat += "Please do not"
         caveat += " reply to this email.  Instead, if you have a concern,"
         caveat += " contact " + self.sender_name + " via "

@@ -9,6 +9,19 @@ from sge_email.scripts import send_email
 from processes.pipeline.bcbio_config_interaction import grab_yaml
 from processes.hiseq.multi_fastq import list_from_multi_fastq_object
 
+class GenericCp(QsubProcess):
+    """
+    A class for processes that don't necessarily need sample data.
+    """
+    def __init__(self,config,key=-1,pipeline_config=None,base_output_dir=None,output_sub_dir=None,input_dir=None,process_name='generic_cp',**kwargs):
+        if not pipeline_config is None:
+            output_dir = None
+            if not base_output_dir is None and not output_sub_dir is None:
+                output_dir = os.path(base_output_dir,output_sub_dir)
+            QsubProcess(self,config,key=key,output_dir=output_dir,input_dir=input_dir,process_name=process_name,**kwargs)
+            
+            
+
 class Zcat(SampleQsubProcess):
     """
     Manage and stores info for the Zcat process.  This is the process that decompresses and moves fastq files from storage to the processing directories. 

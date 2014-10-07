@@ -2,7 +2,6 @@ import re
 import os
 import yaml
 import argparse
-from processes.parsing import table_reader
 
 def create_multi_fastq_yaml(yaml_filename,directory_list):
     """
@@ -31,7 +30,7 @@ def create_multi_fastq_object(directory_list):
     """
     multi_fastq = []
     for directory in directory_list:
-        sample_sheet_table  = table_reader(os.path.join(directory, 'SampleSheet.csv'))
+        sample_sheet_table =  csv.DictReader(open(os.path.join(directory, 'SampleSheet.csv'),delimiter=',')
         flowcell_key = sample_sheet_table[0]["FCID"]
         sample_key = sample_sheet_table[0]["SampleID"]
         for p in os.listdir(directory):

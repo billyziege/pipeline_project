@@ -2,77 +2,76 @@ import re
 import os
 import yaml
 import argparse
-
-#This funciton insures the appropriate name when reading in a sample.
-def translate_sample_name(orig_sample_name):
-    sample_name = re.sub("_","-",orig_sample_name)
-    if sample_name[0:4] != 'K-ND':
-        match_object = re.search("(\d+)_([A-H])(\d+$)",sample_name)
-        if match_object:
-            plate_num = match_object.group(1)
-            while len(plate_num) < 5:
-                plate_num = '0' + str(plate_num) 
-            well_column = match_object.group(2)
-            well_row = match_object.group(3)
-            if len(well_row) == 1:
-                well_row = '0' + str(well_row)
-            form = 'K-NDNA' + plate_num + '_' + well_column + well_row
-            return form
-        else:
-            try:
-                sample_name.replace(" ","_");
-                int(sample_name[0])
-                sample_name = "Sample_" + str(sample_name)
-            except:
-                pass
-            return sample_name
-    else:
-        try:
-            sample_name.replace(" ","_");
-            int(sample_name[0])
-            sample_name = "Sample_" + str(sample_name)
-        except:
-            pass
-        return sample_name
+from processes.hiseq.sample_sheet import SampleSheetObj
 
 def list_monitoring_dirs(directory):
+    """
+    Returns a list of directories below the given directory that have three "_"'s in their basename.
+    """
     dirs = []
     for p in os.listdir(directory):
         if os.path.isdir(os.path.join(directory,p)):
-            if re.search("_\w+_\w+_\w+",p):
+            if re.search("_\w+_\w+_[A,B]\w\w\w\w\w\w\w\w\w",p):
                 dirs.append(os.path.join(directory,p))
     return dirs 
 
 def list_sample_dirs(directories):
-    print "directories: " + str(directories)
+    """
+    Returns a dictionary of directories below the given list of directories keyed by sample id
+    by searching for the first SampleSheet.csv file.
+    """
     sample_dirs = {}
     for directory in directories:
-        print "  "+directory
         for root, dirs, files in os.walk(directory):
             for f in files:
                 if f == 'SampleSheet.csv':
-                    if re.search('Undetermine', root):
-                        continue
-                    with open(os.path.join(root,f),'r') as handle:
-                        if len(handle.readlines()) > 3:
-                            continue 
-                    sample_sheet_table  = table_reader(os.path.join(root, f))
-                    if not sample_sheet_table[0]["SampleID"] in sample_dirs:
-                        sample_dirs[sample_sheet_table[0]["SampleID"]] = []
-                    sample_dirs[sample_sheet_table[0]["SampleID"]].append(root)
+                    sample_sheet_file = os.path.join(root,f)
+                    sample_sheet_obj = SampleSheetObj(sample_sheet_file=sample_sheet_file)
+                    sample_sheet_table = sample_sheet_obj.sample_sheet_table
+                    samples_list = sample_sheet_table.__get_column_values__("SampleID")
+                    if len(samples_list) > 1:
+                       continue
+                    if not samples_list[0] in sample_dirs:
+                        sample_dirs[samples_list[0]] = []
+                    sample_dirs[samples_list[0]].append(root)
     return sample_dirs
 
-def table_reader(fname,sep=','):
+def list_project_sample_dirs(directories):
     """
-    Reads a table csv file with a header into a list
-    which has a dictionary keyed by row number.
+    Returns a dictionary of directories below the given list of directories keyed by project then sample id.
+    One of the directories at the first level below the given directories must start with Project_.  This
+    is the general framework of output from casava.
     """
-    rows = []
-    with open(fname, "r") as f:
-        keys = f.readline().strip().split(',')
-        for line in f:
-            values = line.strip().split(',')
-            dictionary = dict(zip(keys, values))
-            rows.append(dictionary)
-    return rows
+    project_dirs_obj = {}
+    for dir in directories:
+        for dirname in os.listdir(dir):
+            if not os.path.isdir(os.path.join(dir,dirname)):
+                continue
+            if not dirname.startswith("Project_"):
+                continue
+            if not dirname in project_dirs_obj:
+                project_dirs_obj[dirname] = {}
+            project_dir = os.path.join(dir,dirname)
+            sample_dirs_obj = list_sample_dirs([project_dir])
+            for sample in sample_dirs_obj:
+                if not sample in project_dirs_obj[dirname]:
+                    project_dirs_obj[dirname][sample] = []
+                for sample_dir in sample_dirs_obj[sample]:
+                    project_dirs_obj[dirname][sample].append(sample_dir)
+    return project_dirs_obj
 
+if __name__ == '__main__':
+    #Handle arguments
+    parser = argparse.ArgumentParser(description='Test various functions in this package')
+    parser.add_argument('path', type=str, help='Provides the path to the flowcell/project/sample directory (Required).')
+    parser.add_argument('--monitoring_dirs_list', dest="monitor", action="store_true", default=False, help='Tests the list monitoring dirs function.')
+    parser.add_argument('--sample_dirs_list', dest="sample", action="store_true", default=False, help='Tests the list sample dirs function.')
+    parser.add_argument('--project_sample_dirs_list', dest="project", action="store_true", default=False, help='Tests the list project sample dirs function.')
+
+    args = parser.parse_args()
+    if args.monitor:
+        print str(list_monitoring_dirs(args.path))
+    if args.sample:
+        print str(list_sample_dirs([args.path]))
+    if args.project:
+        print str(list_project_sample_dirs([args.path]))
