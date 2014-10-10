@@ -15,14 +15,12 @@ from sge_email.scripts import send_email
 
 def maintain_sequencing_run_objects(config,mockdb):
     """
-    Reads in the directories in the casava output directory and compares it to what's in the 
+    Reads in the directories in the hiseq output directory and compares it to what's in the 
     SequencingRun database.  If it is a new directory, a new sequencing run object is created in
     the Running state.
     """
-    monitoring_dirs = set(list_monitoring_dirs(config.get('Common_directories','casava_output')))
-    db_dirs = set(mockdb['SequencingRun'].__attribute_value_to_key_dict__('output_dir').keys())
-    new_dirs = monitoring_dirs.difference(db_dirs)
-    for nd in new_dirs:
+    monitoring_dirs = list_monitoring_dirs(config.get('Common_directories','hiseq_output'))
+    for dir in monitoring_dirs:
         try:
             [date,machine_key,run_number,side,flowcell_key] = parse_sequencing_run_dir(nd)
         except:
@@ -31,41 +29,49 @@ def maintain_sequencing_run_objects(config,mockdb):
             flowcell_key = "dummy_flowcell"
             run_number = -1
             side = "dummy_side"
+        monitoring_dirs_keyed_by_flowcell[flowcell_key] = dir
+    db_flowcells = set(mockdb['SequencingRun'].__attribute_value_to_key_dict__('flowcell_key').keys())
+    new_flowcells = set(monitoring_dirs_keyed_by_flowcell.keys()).difference(db_flowcells)
+    for new_flowcell in new_flowcells:
         machine = mockdb['HiSeqMachine'].__get__(config,key=machine_key)
         flowcell = mockdb['Flowcell'].__get__(config,key=flowcell_key)
-        run_type = determine_run_type(nd)
-        seq_run=mockdb['SequencingRun'].__new__(config,flowcell=flowcell,machine=machine,date=date,run_number=run_number,output_dir=nd,side=side,run_type=run_type)
+        run_type = determine_run_type(monitoring_dirs_keyed_by_flowcell[flowcell_key])
+        seq_run=mockdb['SequencingRun'].__new__(config,flowcell=flowcell,machine=machine,date=date,run_number=run_number,side=side,run_type=run_type)
     return 1
 
-def initialize_pipeline_for_finished_sequencing_runs(configs,storage_devices,mockdb,pipeline_name):
+def initialize_bcltofastq_pipeline_for_finished_sequencing_runs(configs,storage_devices,mockdb):
     """
     Checks running SequencingRuns and determines if they are complete.  If so, 
     the sequencing run is deligated to another function to continue with the next step. 
+    This is generally the casava pipeline. 
     """
     state_dict = mockdb['SequencingRun'].__attribute_value_to_object_dict__('state')
     try:
         for seq_run in state_dict['Running']:
             if seq_run.__is_complete__():
-                things_to_do_if_sequencing_run_is_complete(configs,storage_devices,mockdb,seq_run,pipeline_name)
+                seq_run.__start_bcltofastq_pipeline__(configs,mockdb)
     except KeyError:
         pass
     return 1
     
-def finish_seq_runs(mockdb):
+def push_fastq_from_finished_casava(configs,storage_devices,mockdb,pipeline_name):
     """
-    Finishes the seq runs after pipelines have begun.
+    Finishes the casava pipeline.  This is separated
+    out due to the consolidation of multiple directories into a single email
+    and to isolate it for specific pipelines.
     """
-    state_dict = mockdb['SequencingRun'].__attribute_value_to_object_dict__('state')
+    state_dict = mockdb['BclToFastqPipeline'].__attribute_value_to_object_dict__('state')
     problem_dirs = []
     try:
-        for seq_run in state_dict['Running']:
-            if seq_run.__is_complete__():
+        for casava_pipeline in state_dict['Running']:
+            if casava_pipeline.__is_complete__():
                 sample_dirs = list_sample_dirs(seq_run.output_dir.split(":"))
                 for sample in sample_dirs:
                     for sample_dir in sample_dirs[sample]:
                         if (int(disk_usage(sample_dir)) < 200000):
                             problem_dirs.append(sample_dir)
-                seq_run.__finish__()
+                #Initialize casava pipeline
+                casava_pipeline.__finish__()
     except KeyError:
         pass
     if len(problem_dirs) > 0:
@@ -136,7 +142,7 @@ def run_pipeline_with_enough_space(configs,storage_devices,pipeline,mockdb):
     return True
     #return False
 
-def advance_running_qc_pipelines(configs,storage_devices,mockdb):
+def advance_running_qc_pipelines(configs,mockdb,*args,**kwargs):
     """
     Identifies all pipelines that are currently running (if any).  Passes these
     pipelines to a subfunction to check the individual steps in the pipeline.
@@ -144,12 +150,12 @@ def advance_running_qc_pipelines(configs,storage_devices,mockdb):
     state_dict = mockdb['QualityControlPipeline'].__attribute_value_to_object_dict__('state')
     try:
         for pipeline in state_dict['Running']:
-            advance_running_qc_pipeline(configs,storage_devices,pipeline,mockdb)
+            advance_running_qc_pipeline(configs,pipeline,mockdb,*args,**kwargs)
     except KeyError:
         pass
     return 1
 
-def advance_running_std_pipelines(configs,storage_devices,mockdb,pipeline_name):
+def advance_running_std_pipelines(configs,mockdb,pipeline_name,*args,**kwargs):
     """
     Same as the advance_running_qc_pipelines function, except for the StandardPipleine pipeline.
     """ 
@@ -158,14 +164,14 @@ def advance_running_std_pipelines(configs,storage_devices,mockdb,pipeline_name):
         for pipeline in state_dict['Running']:
             pipeline.__copy_altered_parameters_to_config__(configs["pipeline"])
             if configs["pipeline"].has_option("Pipeline","steps"): #New interface for allowing external definition of linear pipelines
-                pipeline.__handle_linear_steps__(configs,storage_devices,mockdb)
+                pipeline.__handle_linear_steps__(configs,mockdb,*args,**kwargs)
             else:
-                advance_running_std_pipeline(configs,storage_devices,pipeline,mockdb)
+                advance_running_std_pipeline(configs,pipeline,mockdb,*args,**kwargs)
     except KeyError:
         pass
     return 1
 
-def advance_running_qc_pipeline(configs,storage_devices,pipeline,mockdb):
+def advance_running_qc_pipeline(configs,pipeline,mockdb,*args,**kwargs):
     """
     Determines which stage the pipeline currently is running, determines
     if that stage is complete, and then passes the relevant
@@ -204,10 +210,10 @@ def advance_running_qc_pipeline(configs,storage_devices,pipeline,mockdb):
     sys.stderr.write(pipeline.sample_key+"\n");
     sys.stderr.write(clean_bcbio.key+"\n")
     if clean_bcbio.__is_complete__():
-        things_to_do_if_bcbio_cleaning_complete(storage_devices,mockdb,pipeline,clean_bcbio)
+        things_to_do_if_bcbio_cleaning_complete(mockdb,pipeline,clean_bcbio,*args,**kwargs)
     return 1
 
-def advance_running_std_pipeline(configs,storage_devices,pipeline,mockdb):
+def advance_running_std_pipeline(configs,pipeline,mockdb,*args,**kwargs):
     """
     Same as the advance_running_qc_pipeline function, except for any completely linear pipeline.
     """ 
@@ -226,6 +232,6 @@ def advance_running_std_pipeline(configs,storage_devices,pipeline,mockdb):
         return 1
     clean_bcbio = mockdb['CleanBcbio'].__get__(configs['system'],int(pipeline.cleaning_key))
     if clean_bcbio.__is_complete__():
-        things_to_do_if_bcbio_cleaning_complete(storage_devices,mockdb,pipeline,clean_bcbio)
+        things_to_do_if_bcbio_cleaning_complete(mockdb,pipeline,clean_bcbio,*args,**kwargs)
     return 1
 

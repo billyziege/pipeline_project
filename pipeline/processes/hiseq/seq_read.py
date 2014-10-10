@@ -59,11 +59,13 @@ class SeqReadSet():
     and provides methods to read/write it.
     """
 
-    def __init__(self):
+    def __init__(self,run_parameters_path=None):
         """
         Just an array of reads.
         """
         self.seq_reads = []
+        if not run_parameters_path is None:
+            self.__inject_seq_reads_from_run_parameters__(run_parameters_path)
 
     def __inject_seq_reads_from_run_parameters__(self,path):
         """
@@ -78,7 +80,7 @@ class SeqReadSet():
             seq_read = SeqRead(read_type,elem.attrib['NumCycles'])
             self.seq_reads.append(seq_read)
         #For the case where there is only a single index, actual length is always
-        #lenght - 1.  This must be corrected.
+        #length - 1.  This must be corrected.
         if self.__count_indices__() == 1:
             for seq_read in self.seq_reads:
                 if seq_read.__is_index__():

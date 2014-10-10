@@ -81,10 +81,10 @@ for pipeline_name in pipeline_config.keys():
         print "Advancing " + pipeline_name
     if pipeline_name == 'QualityControlPipeline':
         configs.update({'pipeline':pipeline_config['QualityControlPipeline']})
-        advance_running_qc_pipelines(configs,storage_devices,mockdb)
+        advance_running_qc_pipelines(configs,mockdb,storage_devices=storage_devices)
     else:
         configs.update({'pipeline':pipeline_config[pipeline_name]})
-        advance_running_std_pipelines(configs,storage_devices,mockdb,pipeline_name)
+        advance_running_std_pipelines(configs,mockdb,pipeline_name,storage_devices=storage_devices)
 
 #The remaining pipeline are taking up storage.  I used to account for this, but no longer.  This can be added back in, but needs a little work.
 #add_running_storage(configs['system'],storage_devices,mockdb)

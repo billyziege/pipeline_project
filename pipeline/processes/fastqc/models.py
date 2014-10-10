@@ -20,11 +20,11 @@ class FastQC(SampleQsubProcess):
         """
         SampleQsubProcess.__init__(self,config,key=key,process_name=process_name,**kwargs)
 
-    def __is_complete__(self):
+    def __is_complete__(self,*args,**kwargs):
         """
         Check to the complete file of the zcat process and handles notifications (if any).
         """
-        if GenericProcess.__is_complete__(self):
+        if GenericProcess.__is_complete__(self,*args,**kwargs):
             return True
         elif not os.path.isfile(self.complete_file):
             #print self.complete_file

@@ -7,7 +7,7 @@ from processes.hiseq.sample_sheet import clean_sample_name, clean_index
 
 #This function reads the sample sheet into appropriate objects
 def parse_sample_sheet(config,mockdb,directory):
-    table =  csv.DictReader(open(os.path.join(directory, 'SampleSheet.csv'),delimiter=',')
+    table =  csv.DictReader(open(os.path.join(directory, 'SampleSheet.csv'),delimiter=','))
     try:
         samplesheet = table[0]
     except:

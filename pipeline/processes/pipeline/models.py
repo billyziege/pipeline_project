@@ -133,14 +133,14 @@ class Bcbio(SampleQsubProcess):
                 return False
         return True
 
-    def __is_complete__(self,configs):
+    def __is_complete__(self,configs,*args,**kwargs):
         """
         Due to the inclusion of sub-processes (snp_stats and concordance search),
         this function contains the logic to check to makes sure all of these processes
         have completed successfully.  If complete, the relevant statistics are stored.
         """
         current_dir = self.output_dir
-        if GenericProcess.__is_complete__(self):
+        if GenericProcess.__is_complete__(self,*args,**kwargs):
             return True
         elif not os.path.isfile(self.complete_file):
             if hasattr(self,"upload_dir"):
@@ -173,7 +173,7 @@ class Bcbio(SampleQsubProcess):
                 self.__launch__(configs['system'],os.path.join(self.output_dir,"bcbio_no_postprocess.sh"))
                 return False
         #store_stats_in_db(self)
-        self.__finish__()
+        self.__finish__(*args,**kwargs)
         return True
 
     def __generate_general_error_text__(self,config):

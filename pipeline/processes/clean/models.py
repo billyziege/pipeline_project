@@ -20,8 +20,8 @@ class CleanBcbio(SampleQsubProcess):
         SampleQsubProcess.__init__(self,config,key=key,sample=sample,input_dir=input_dir,output_dir=output_dir,process_name=process_name,complete_file=complete_file,**kwargs)
         self.sample_file = bcbio.sample_file
 
-    def __is_complete__(self,configs=None):
-        return SampleQsubProcess.__is_complete__(self)
+    def __is_complete__(self,*args,*kwargs):
+        return SampleQsubProcess.__is_complete__(self,*args,**kwargs)
 
 class Clean(SampleQsubProcess):
     """
@@ -32,5 +32,5 @@ class Clean(SampleQsubProcess):
     def __init__(self,config,process_name='clean',**kwargs):
         SampleQsubProcess.__init__(self,config,process_name=process_name,**kwargs)
 
-    def __is_complete__(self,configs=None):
-        return SampleQsubProcess.__is_complete__(self)
+    def __is_complete__(self,*args,**kwargs):
+        return SampleQsubProcess.__is_complete__(self,*args,**kwargs)

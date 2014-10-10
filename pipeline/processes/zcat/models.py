@@ -13,11 +13,8 @@ class GenericCp(QsubProcess):
     """
     A class for processes that don't necessarily need sample data.
     """
-    def __init__(self,config,key=-1,pipeline_config=None,base_output_dir=None,output_sub_dir=None,input_dir=None,process_name='generic_cp',**kwargs):
-        if not pipeline_config is None:
-            output_dir = None
-            if not base_output_dir is None and not output_sub_dir is None:
-                output_dir = os.path(base_output_dir,output_sub_dir)
+    def __init__(self,config,key=-1,output_dir=None,input_dir=None,process_name='generic_cp',**kwargs):
+        if not input_dir is None:
             QsubProcess(self,config,key=key,output_dir=output_dir,input_dir=input_dir,process_name=process_name,**kwargs)
             
             
@@ -58,11 +55,11 @@ class Zcat(SampleQsubProcess):
         with open(self.qsub_file,'w') as f:
             f.write(fill_template(template_file,dictionary))
 
-    def __is_complete__(self):
+    def __is_complete__(self,*args,**kwargs):
         """
         Check to the complete file of the zcat process and handles notifications (if any).
         """
-        if GenericProcess.__is_complete__(self):
+        if GenericProcess.__is_complete__(self,*args,**kwargs):
             return True
         elif not os.path.isfile(self.complete_file):
             #print self.complete_file

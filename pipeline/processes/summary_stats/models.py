@@ -109,7 +109,7 @@ class SummaryStats(SampleQsubProcess):
         store_summary_stats_in_db(self)
         if configs["system"].get("Logging","debug") is "True":
             print "  Finishing." 
-        self.__finish__()
+        self.__finish__(*args,**kwargs)
         return True
 
 class SnpStats(SampleQsubProcess):
@@ -163,20 +163,20 @@ class SnpStats(SampleQsubProcess):
         with open(self.qsub_file,'w') as f:
             f.write(fill_template(template_file,dictionary))
 
-    def __is_complete__(self,configs,mockdb):
+    def __is_complete__(self,configs,mockdb,*args,**kwargs):
         """
         Since concordance search is an optional sub-process, this function checks for
         both the completeness of the self concordance program and the necessity,
         and if necessary the completeness, of the concordance search.  Then, once 
         complete, relevant statistics are stored.
         """
-        if GenericProcess.__is_complete__(self):
+        if GenericProcess.__is_complete__(self,*args,**kwargs):
             return True
         elif not os.path.isfile(self.complete_file):
             return False
         store_snp_stats_in_db(self)
         if self.percentage_concordance > configs['pipeline'].get('Concordance','threshold'):
-            self.__finish__()
+            self.__finish__(*args,**kwargs)
             return True
         #If the concordance is below the threshold, we need to conduct a concordance search against the database
         #First we split the search across processors
@@ -187,8 +187,8 @@ class SnpStats(SampleQsubProcess):
             concord_search.__launch_split_searches__(configs)
             return False
         concord_search = mockdb['ConcordanceSearch'].objects[self.search_key]
-        if concord_search.__is_complete__(configs['system']):
-            self.__finish__()
+        if concord_search.__is_complete__(configs['system'],*args,**kwargs):
+            self.__finish__(*args,**kwargs)
             return True
         #Now we gather
         if concord_search.__are_split_searches_complete__(configs['pipeline']):
@@ -301,13 +301,13 @@ class ConcordanceSearch(SampleQsubProcess):
                 raise Exception("The process for {0} is complete but the output is missing".format(output_file))
         return True
 
-    def __is_complete__(self,config):
+    def __is_complete__(self,config,*args,**kwargs):
         """
         Checks to see if the gathering process is complete.
         If so, the top 5 "scoring" results of the search are
         stored.
         """
-        if GenericProcess.__is_complete__(self):
+        if GenericProcess.__is_complete__(self,*args,**kwargs):
             return True
         elif not os.path.isfile(self.complete_file):
             return False

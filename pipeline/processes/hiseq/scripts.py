@@ -31,6 +31,8 @@ def list_sample_dirs(directories):
                     samples_list = sample_sheet_table.__get_column_values__("SampleID")
                     if len(samples_list) > 1:
                        continue
+                    if re.search('Undetermined',root):
+                       continue
                     if not samples_list[0] in sample_dirs:
                         sample_dirs[samples_list[0]] = []
                     sample_dirs[samples_list[0]].append(root)
@@ -39,25 +41,24 @@ def list_sample_dirs(directories):
 def list_project_sample_dirs(directories):
     """
     Returns a dictionary of directories below the given list of directories keyed by project then sample id.
-    One of the directories at the first level below the given directories must start with Project_.  This
-    is the general framework of output from casava.
+    This is the general framework of output from casava.
     """
     project_dirs_obj = {}
-    for dir in directories:
-        for dirname in os.listdir(dir):
-            if not os.path.isdir(os.path.join(dir,dirname)):
-                continue
-            if not dirname.startswith("Project_"):
-                continue
-            if not dirname in project_dirs_obj:
-                project_dirs_obj[dirname] = {}
-            project_dir = os.path.join(dir,dirname)
-            sample_dirs_obj = list_sample_dirs([project_dir])
-            for sample in sample_dirs_obj:
-                if not sample in project_dirs_obj[dirname]:
-                    project_dirs_obj[dirname][sample] = []
-                for sample_dir in sample_dirs_obj[sample]:
-                    project_dirs_obj[dirname][sample].append(sample_dir)
+    for directory in directories:
+        for root, dirs, files in os.walk(directory):
+            for d in dirs:
+                if not d.startswith("Project_"):
+                    continue
+                dirname = os.path.basename(d)
+                if not dirname in project_dirs_obj:
+                    project_dirs_obj[dirname] = {}
+                project_dir = os.path.join(root,d)
+                sample_dirs_obj = list_sample_dirs([project_dir])
+                for sample in sample_dirs_obj:
+                    if not sample in project_dirs_obj[dirname]:
+                        project_dirs_obj[dirname]["Sample_"+sample] = []
+                    for sample_dir in sample_dirs_obj[sample]:
+                        project_dirs_obj[dirname]["Sample_"+sample].append(sample_dir)
     return project_dirs_obj
 
 if __name__ == '__main__':

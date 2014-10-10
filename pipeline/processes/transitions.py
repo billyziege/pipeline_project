@@ -83,7 +83,7 @@ def begin_fast_q_c(configs,mockdb,pipeline,step_objects,prev_step_key,**kwargs):
 
 def begin_Dnanexusupload(configs,mockdb,pipeline,step_objects,prev_step_key,**kwargs):
     sample = mockdb['Sample'].__get__(configs['system'],pipeline.sample_key)
-    dnanexusupload = mockdb['Dnanexusuplaod'].__new__(configs['system'],sample=sample,input_dir=step_objects[prev_step_key].output_dir,**kwargs)
+    dnanexusupload = mockdb['Dnanexusupload'].__new__(configs['system'],sample=sample,input_dir=step_objects[prev_step_key].output_dir,**kwargs)
     pipeline.dnanexusupload_key = dnanexusupload.key
     dnanexusupload.__fill_qsub_file__(configs)
     dnanexusuplaod.__launch__(configs['system'])
@@ -262,8 +262,11 @@ def things_to_do_if_clean_bcbio_complete(mockdb,pipeline,clean_bcbio):
     return 1
 
 
-def things_to_do_if_bcbio_cleaning_complete(storage_devices,mockdb,pipeline,clean_bcbio):
-    pipeline.__finish__(storage_device=storage_devices[pipeline.running_location])
+def things_to_do_if_bcbio_cleaning_complete(mockdb,pipeline,clean_bcbio,storage_device=None,*args,**kwargs):
+    if storage_devices is None:
+        pipeline.__finish__()
+    else:
+        pipeline.__finish__(storage_device=storage_devices[pipeline.running_location])
     clean_bcbio.__finish__()
     return 1
 
@@ -295,55 +298,6 @@ def things_to_do_if_starting_pipeline(configs,mockdb,pipeline):
     pipeline.zcat_key = zcat.key
     zcat.__launch__(configs['system'])
     pipeline.state = 'Running'
-    return 1
-
-def things_to_do_if_casava_is_complete(configs,storage_devices,mockdb,seq_run,pipeline_name):
-    flowcell = mockdb['Flowcell'].__get__(configs['system'],seq_run.flowcell_key)
-    machine = mockdb['HiSeqMachine'].__get__(configs['system'],seq_run.machine_key)
-    if configs["system"].get("Logging","debug") is "True":
-        print "  Flowcell " + flowcell.key
-        print "  Machine " + machine.key
-        print "  Filling stats"
-    fill_demultiplex_stats(configs['system'],mockdb,seq_run.output_dir,flowcell,machine)
-    if configs["system"].get("Logging","debug") is "True":
-        print "  Determining dirs"
-    sample_dirs = list_sample_dirs(seq_run.output_dir.split(":"))
-    if configs["system"].get("Logging","debug") is "True":
-       print "  Samples: " + str(sample_dirs) 
-    target_config = ConfigParser.ConfigParser()
-    target_config.read(configs["system"].get("Filenames","target_config"))
-    for sample in sample_dirs:
-        if configs["system"].get("Logging","debug") is "True":
-           print "    Processing " + sample
-        running_location = identify_running_location_with_most_currently_available(configs,storage_devices)
-        parsed = parse_sample_sheet(configs['system'],mockdb,sample_dirs[sample][0])
-        if (re.search('MSBP$',parsed['description']) and (pipeline_name == 'QualityControlPipeline')):
-            base_output_dir = configs['pipeline'].get('Common_directories','archive_directory')
-            pipeline = mockdb['QualityControlPipeline'].__new__(configs['system'],input_dir=sample_dir[sample][0],base_output_dir=base_output_dir,sequencing=seq_run,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
-            #backup = mockdb['Backup'].__new__(config,sample=parsed['sample'],input_dir=sample_dir)
-            #backup.__fill_qsub_file__(config)
-            #backup.__launch__(config,storage_device=storage_devices[backup.location])
-            flowcell_fc_report_dict = mockdb['FlowcellStatisticsReports'].__attribute_value_to_object_dict__('flowcell_key')
-            try:
-                report = flowcell_fc_report_dict[flowcell.key][0]
-            except KeyError:
-                report = mockdb['FlowcellStatisticsReports'].__new__(configs['system'],flowcell=flowcell,seq_run=seq_run)
-            report.__add_pipeline__(pipeline)
-        elif (re.search('NGv3$',parsed['description']) and (pipeline_name == 'StandardPipeline')):
-            base_output_dir = configs['pipeline'].get('Common_directories','archive_directory')
-            mockdb['StandardPipeline'].__new__(configs['system'],input_dir=sample_dirs[sample][0],base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
-        elif (pipeline_name == 'FastQCPipeline'):
-            base_output_dir = configs['pipeline'].get('Common_directories','archive_directory')
-            mockdb['FastQCPipeline'].__new__(configs['system'],input_dir=sample_dirs[sample][0],base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
-        elif (re.search('MHC$',parsed['description']) and (pipeline_name == 'MHCPipeline')):
-            base_output_dir = configs['pipeline'].get('Common_directories','archive_directory')
-            mockdb['MHCPipeline'].__new__(configs['system'],input_dir=sample_dirs[sample][0],base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
-        elif (re.search('NGv3plusUTR$',parsed['description']) and (pipeline_name == 'NGv3PlusPipeline')):
-            base_output_dir = configs['pipeline'].get('Common_directories','archive_directory')
-            pipeline = mockdb['NGv3PlusPipeline'].__new__(configs['system'],input_dir=sample_dirs[sample][0],base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],capture_target_bed=target_config.get("Pipeline",'NGv3plusUTR'),**parsed)
-        elif (re.search('MLEZHX1$',parsed['description']) and (pipeline_name == 'NGv3PlusPipeline')):
-            base_output_dir = configs['pipeline'].get('Common_directories','archive_directory')
-            pipeline = mockdb['NGv3PlusPipeline'].__new__(configs['system'],input_dir=sample_dirs[sample][0],base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],capture_target_bed=target_config.get("Pipeline",'MLEZHX1'),**parsed)
     return 1
 
 def things_to_do_if_initializing_pipeline_with_input_directory(configs,storage_devices,mockdb,source_dir,pipeline_name=None,base_output_dir=None):
