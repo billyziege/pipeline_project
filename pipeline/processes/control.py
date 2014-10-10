@@ -199,16 +199,18 @@ def advance_running_qc_pipeline(configs,pipeline,mockdb,*args,**kwargs):
     if pipeline.cleaning_key is None: #cleaning hasn't begun
         bcbio = mockdb['Bcbio'].__get__(configs['system'],int(pipeline.bcbio_key))
         snp_stats = mockdb['SnpStats'].__get__(configs['system'],int(pipeline.snp_stats_key))
-        #print pipeline.key
-        #print bcbio.__is_complete__(configs)
-        #print snp_stats.__is_complete__(configs,mockdb)
+        if configs["system"].get("Logging","debug") is "True":
+            print pipeline.key
+            print bcbio.__is_complete__(configs)
+            print snp_stats.__is_complete__(configs,mockdb)
         if bcbio.__is_complete__(configs) and snp_stats.__is_complete__(configs,mockdb):
             things_to_do_if_bcbio_complete(configs,mockdb,pipeline,bcbio)
             things_to_do_if_snp_stats_complete(configs,mockdb,pipeline,snp_stats)
         return 1
     clean_bcbio = mockdb['CleanBcbio'].__get__(configs['system'],int(pipeline.cleaning_key))
-    sys.stderr.write(pipeline.sample_key+"\n");
-    sys.stderr.write(clean_bcbio.key+"\n")
+    if configs["system"].get("Logging","debug") is "True":
+        sys.stderr.write(pipeline.sample_key+"\n");
+        sys.stderr.write(clean_bcbio.key+"\n")
     if clean_bcbio.__is_complete__():
         things_to_do_if_bcbio_cleaning_complete(mockdb,pipeline,clean_bcbio,*args,**kwargs)
     return 1

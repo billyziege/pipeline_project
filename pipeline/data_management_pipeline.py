@@ -1,6 +1,6 @@
 import sys
 import argparse
-import ConfigParser
+from config.scripts import MyConfigParser
 from mockdb.initiate_mockdb import initiate_mockdb,save_mockdb
 from manage_storage.scripts import initiate_storage_devices, add_waiting_storage, add_running_storage
 from processes.control import maintain_sequencing_run_objects, initialize_pipeline_for_finished_sequencing_runs,advance_running_qc_pipelines
@@ -20,7 +20,7 @@ if options.debug is True:
     print "Options are " + str(options)
 
 #Load configs
-system_config = ConfigParser.ConfigParser()
+system_config = MyConfigParser()
 system_config.read(options.system_config_file)
 system_config.add_section("Logging")
 if options.debug is True:
@@ -30,7 +30,7 @@ else:
 pipelines = system_config.get('Pipeline','opts').split(',')
 pipeline_config = {}
 for pipeline_name in pipelines:
-    config_instance = ConfigParser.ConfigParser()
+    config_instance = MyConfigParser()
     pipeline_config.update({pipeline_name:config_instance})
     pipeline_config[pipeline_name].read(system_config.get('Pipeline',pipeline_name))
 configs = {}

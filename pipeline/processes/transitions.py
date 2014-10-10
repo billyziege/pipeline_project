@@ -1,5 +1,5 @@
 import os
-import ConfigParser
+from config.scripts import MyConfigParser
 import sys
 import re
 import datetime
@@ -13,12 +13,53 @@ from processes.summary_stats.extract_stats import store_snp_stats_in_db, store_s
 from processes.pipeline.extract_stats import store_stats_in_db
 from sge_email.scripts import send_email
 from processes.hiseq.multi_fastq import create_multi_fastq_yaml
+from mockdb.scripts import translate_underscores_to_capitals
 
 def begin_next_step(configs,mockdb,pipeline,step_objects,next_step_key,prev_step_key):
     """The begin functions are to be used with linear pipelines"""
     sys.stderr.write("Beginning "+next_step_key+" for "+pipeline.sample_key+"\n")
-    step_objects[next_step_key] = globals()["begin_"+next_step_key](configs,mockdb,pipeline,step_objects,prev_step_key=prev_step_key)
+    try:
+        step_objects[next_step_key] = globals()["begin_"+next_step_key](configs,mockdb,pipeline,step_objects,prev_step_key=prev_step_key)
+    except KeyError:
+        step_objects[next_step_key] = begin_generic_step(configs,mockdb,pipeline,step_objects,next_step_key,prev_step_key)
     return step_objects
+
+def begin_generic_step(configs,mockdb,pipeline,step_objects,next_step_key,prev_step_key):
+    """
+    After working on this for a while, I noticed that most steps do the same exact things when begun.  This function generalizes this.
+    """
+    if hasattr(pipeline, "sample_key"):
+        return begin_generic_sample_step(configs,mockdb,pipeline,step_objects,next_step_key,prev_step_key)
+    return begin_generic_unlabelled_step(configs,mockdb,pipeline,step_objects,next_step_key,prev_step_key)
+
+def begin_generic_unlabelled_step(configs,mockdb,pipeline,step_objects,next_step_key,prev_step_key):
+    """
+    """
+    next_step_obj = mockdb[translate_underscores_to_capitals(next_step_key)].__new__(configs['system'],pipeline_config=configs["pipeline"],pipeline=pipeline)
+    if configs["system"].get("Logging","debug") is "True":
+       print "  "+translate_underscores_to_capitals(next_step_key)+": " + str(next_step_obj.key) 
+    setattr(pipeline,next_step_key+"_key",next_step_obj.key)
+    next_step_obj.__fill_qsub_file__(configs)
+    if configs["system"].get("Logging","debug") is "True":
+        print("Qsub file should be filled in "+next_step_obj.qsub_file)
+    next_step_obj.__launch__(configs['system'])
+    return next_step_obj
+
+def begin_generic_sample_step(configs,mockdb,pipeline,step_objects,next_step_key,prev_step_key):
+    """
+    """
+    sample = mockdb['Sample'].__get__(configs['system'],pipeline.sample_key)
+    if configs["system"].get("Logging","debug") is "True":
+       print "  Sample: " + sample.key 
+    next_step_obj = mockdb[translate_underscores_to_capitals(next_step_key)].__new__(configs['system'],sample=sample,prev_step=step_objects[prev_step_key],pipeline_config=configs["pipeline"],pipeline=pipeline)
+    if configs["system"].get("Logging","debug") is "True":
+       print "  "+translate_underscores_to_capitals(next_step_key)+": " + str(next_step_obj.key) 
+    setattr(pipeline,next_step_key+"_key",next_step_obj.key)
+    next_step_obj.__fill_qsub_file__(configs)
+    if configs["system"].get("Logging","debug") is "True":
+        print("Qsub file should be filled in "+next_step_obj.qsub_file)
+    next_step_obj.__launch__(configs['system'])
+    return next_step_obj
 
 def begin_zcat_multiple(configs,mockdb,pipeline,step_objects,**kwargs):
     sample = mockdb['Sample'].__get__(configs['system'],pipeline.sample_key)
@@ -56,104 +97,6 @@ def begin_cat(configs,mockdb,pipeline,step_objects,**kwargs):
     cat.__launch__(configs['system'])
     return cat
 
-def begin_bwa_aln(configs,mockdb,pipeline,step_objects,prev_step_key,**kwargs):
-    sample = mockdb['Sample'].__get__(configs['system'],pipeline.sample_key)
-    ref_fa = configs['pipeline'].get('References','genome_fasta')
-    bwa_aln = mockdb['BwaAln'].__new__(configs['system'],sample=sample,prev_step=step_objects[prev_step_key],ref_fa=ref_fa,**kwargs)
-    pipeline.bwa_aln_key = bwa_aln.key
-    bwa_aln.__fill_qsub_file__(configs)
-    bwa_aln.__launch__(configs['system'])
-    return bwa_aln
-
-def begin_bwa_sampe(configs,mockdb,pipeline,step_objects,prev_step_key,**kwargs):
-    sample = mockdb['Sample'].__get__(configs['system'],pipeline.sample_key)
-    bwa_sampe = mockdb['BwaSampe'].__new__(configs['system'],sample=sample,prev_step=step_objects[prev_step_key],multi_fastq_file=step_objects["zcat_multiple"].multi_fastq_file,ref_fa=step_objects["bwa_aln"].ref_fa,project=pipeline.project,**kwargs)
-    pipeline.bwa_sampe_key = bwa_sampe.key
-    bwa_sampe.__fill_qsub_file__(configs)
-    bwa_sampe.__launch__(configs['system'])
-    return bwa_sampe
-
-def begin_fast_q_c(configs,mockdb,pipeline,step_objects,prev_step_key,**kwargs):
-    sample = mockdb['Sample'].__get__(configs['system'],pipeline.sample_key)
-    fastqc = mockdb['FastQC'].__new__(configs['system'],sample=sample,input_dir=step_objects[prev_step_key].output_dir,output_dir=step_objects[prev_step_key].output_dir,**kwargs)
-    pipeline.fast_q_c_key = fastqc.key
-    fastqc.__fill_qsub_file__(configs)
-    fastqc.__launch__(configs['system'])
-    return fastqc
-
-def begin_Dnanexusupload(configs,mockdb,pipeline,step_objects,prev_step_key,**kwargs):
-    sample = mockdb['Sample'].__get__(configs['system'],pipeline.sample_key)
-    dnanexusupload = mockdb['Dnanexusupload'].__new__(configs['system'],sample=sample,input_dir=step_objects[prev_step_key].output_dir,**kwargs)
-    pipeline.dnanexusupload_key = dnanexusupload.key
-    dnanexusupload.__fill_qsub_file__(configs)
-    dnanexusuplaod.__launch__(configs['system'])
-    return dnanexusuplaod
-
-def begin_sam_conversion(configs,mockdb,pipeline,step_objects,prev_step_key,**kwargs):
-    sample = mockdb['Sample'].__get__(configs['system'],pipeline.sample_key)
-    sam_conversion = mockdb['SamConversion'].__new__(configs['system'],sample=sample,prev_step=step_objects[prev_step_key],**kwargs)
-    pipeline.sam_conversion_key = sam_conversion.key
-    sam_conversion.__fill_qsub_file__(configs)
-    sam_conversion.__launch__(configs['system'])
-    return sam_conversion
-
-def begin_sort_bam(configs,mockdb,pipeline,step_objects,prev_step_key,**kwargs):
-    sample = mockdb['Sample'].__get__(configs['system'],pipeline.sample_key)
-    if configs["system"].get("Logging","debug") is "True":
-       print "  Sample: " + sample.key 
-    sort_bam = mockdb['SortBam'].__new__(configs['system'],sample=sample,prev_step=step_objects[prev_step_key],**kwargs)
-    if configs["system"].get("Logging","debug") is "True":
-       print "  SortBam: " + str(sort_bam.key) 
-    pipeline.sort_bam_key = sort_bam.key
-    sort_bam.__fill_qsub_file__(configs)
-    sort_bam.__launch__(configs['system'])
-    return sort_bam
-
-def begin_merge_bam(configs,mockdb,pipeline,step_objects,prev_step_key,**kwargs):
-    sample = mockdb['Sample'].__get__(configs['system'],pipeline.sample_key)
-    if configs["system"].get("Logging","debug") is "True":
-       print "  Sample: " + sample.key 
-    merge_bam = mockdb['MergeBam'].__new__(configs['system'],sample=sample,prev_step=step_objects[prev_step_key],**kwargs)
-    if configs["system"].get("Logging","debug") is "True":
-       print "  MergeBam: " + str(merge_bam.key) 
-    pipeline.merge_bam_key = merge_bam.key
-    merge_bam.__fill_qsub_file__(configs)
-    merge_bam.__launch__(configs['system'])
-    return merge_bam
-
-def begin_mark_duplicates(configs,mockdb,pipeline,step_objects,prev_step_key,**kwargs):
-    sample = mockdb['Sample'].__get__(configs['system'],pipeline.sample_key)
-    mark_duplicates = mockdb['MarkDuplicates'].__new__(configs['system'],sample=sample,prev_step=step_objects[prev_step_key],**kwargs)
-    pipeline.mark_duplicates_key = mark_duplicates.key
-    mark_duplicates.__fill_qsub_file__(configs)
-    mark_duplicates.__launch__(configs['system'])
-    return mark_duplicates
-
-def begin_indel_realignment(configs,mockdb,pipeline,step_objects,prev_step_key,**kwargs):
-    sample = mockdb['Sample'].__get__(configs['system'],pipeline.sample_key)
-    dbsnp_vcf = configs['pipeline'].get('References','dbsnp_vcf')
-    indel_realignment = mockdb['IndelRealignment'].__new__(configs['system'],sample=sample,prev_step=step_objects[prev_step_key],ref_fa=step_objects["bwa_aln"].ref_fa,dbsnp_vcf=dbsnp_vcf,**kwargs)
-    pipeline.indel_realignment_key = indel_realignment.key
-    indel_realignment.__fill_qsub_file__(configs)
-    indel_realignment.__launch__(configs['system'])
-    return indel_realignment
-
-def begin_base_recalibration(configs,mockdb,pipeline,step_objects,prev_step_key,**kwargs):
-    sample = mockdb['Sample'].__get__(configs['system'],pipeline.sample_key)
-    base_recalibration = mockdb['BaseRecalibration'].__new__(configs['system'],sample=sample,prev_step=step_objects[prev_step_key],ref_fa=step_objects["bwa_aln"].ref_fa,dbsnp_vcf=step_objects["indel_realignment"].dbsnp_vcf,**kwargs)
-    pipeline.base_recalibration_key = base_recalibration.key
-    base_recalibration.__fill_qsub_file__(configs)
-    base_recalibration.__launch__(configs['system'])
-    return base_recalibration
-
-def begin_unified_genotyper(configs,mockdb,pipeline,step_objects,prev_step_key,**kwargs):
-    sample = mockdb['Sample'].__get__(configs['system'],pipeline.sample_key)
-    unified_genotyper = mockdb['UnifiedGenotyper'].__new__(configs['system'],sample=sample,prev_step=step_objects[prev_step_key],ref_fa=step_objects["bwa_aln"].ref_fa,dbsnp_vcf=step_objects["indel_realignment"].dbsnp_vcf,**kwargs)
-    pipeline.unified_genotyper_key = unified_genotyper.key
-    unified_genotyper.__fill_qsub_file__(configs)
-    unified_genotyper.__launch__(configs['system'])
-    return unified_genotyper
-
 def begin_bcbio(configs,mockdb,pipeline,step_objects,**kwargs):
     zcat = step_objects["zcat"] #Some of the parameters of the bcbio are dependent on the parameters in the zcat object.
     sample = mockdb['Sample'].__get__(configs['system'],pipeline.sample_key)
@@ -189,34 +132,6 @@ def begin_clean_bcbio(configs,mockdb,pipeline,step_objects,**kwargs):
     clean_bcbio.__launch__(configs['system'])
     pipeline.clean_bcbio_key = clean_bcbio.key
     return clean_bcbio
-
-def begin_clean(configs,mockdb,pipeline,step_objects,prev_step_key,**kwargs):
-    sample = mockdb['Sample'].__get__(configs['system'],pipeline.sample_key)
-    clean = mockdb['Clean'].__new__(configs['system'],sample=sample,input_dir=step_objects[prev_step_key].output_dir,output_dir=pipeline.output_dir,process_name='clean')
-    clean.__fill_qsub_file__(configs)
-    clean.__launch__(configs['system'])
-    pipeline.clean_key = clean.key
-    return clean
-
-def begin_cp_result_back(configs,mockdb,pipeline,step_objects,prev_step_key,**kwargs):
-    sample = mockdb['Sample'].__get__(configs['system'],pipeline.sample_key)
-    if configs['pipeline'].has_option('Common_directories','output_subdir'):
-        output_subdir = configs['pipeline'].get('Common_directories','output_subdir')
-    else:
-        output_subdir = 'ngv3'
-    if configs['pipeline'].has_option('Common_directories','cp_subdir'):
-        if configs['pipeline'].get('Common_directories','cp_subdir') == "None":
-            cp_input_dir = pipeline.output_dir
-        else:
-            cp_input_dir = os.path.join(pipeline.output_dir,configs['pipeline'].get('Common_directories','cp_subdir'))
-    else:
-        cp_input_dir = os.path.join(pipeline.output_dir,"results")
-    cp_result_back = mockdb['CpResultBack'].__new__(configs['system'],sample=sample,input_dir=cp_input_dir,output_dir=pipeline.output_dir,base_output_dir=pipeline.input_dir,output_subdir=output_subdir,process_name='cp')
-    cp_result_back.__fill_qsub_file__(configs)
-    cp_result_back.__launch__(configs['system'])
-    pipeline.cp_result_back_key = cp_result_back.key
-    return cp_result_back
-
 
 def things_to_do_if_zcat_complete(configs,mockdb,pipeline,zcat):
     zcat.__finish__()

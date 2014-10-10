@@ -1,3 +1,22 @@
+from ConfigParser import *
+
+class MyConfigParser(ConfigParser):
+    """
+    Extends config parser to do some additional stuff.
+    """
+
+    def __init__(self):
+        ConfigParser.__init__(self)
+
+    def safe_get(self,section,key,default_value=None):
+        """
+        Return either the value of the parameter or None if there is an exception.
+        """
+        try:
+             return config.get(section,key)
+        except:
+             return default_value
+    
 def get_location_dictionary_from_config(config):
     location_options = config.get('Location_options','list').split(",")
     location_dirs = {}

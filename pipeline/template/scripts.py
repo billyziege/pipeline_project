@@ -97,9 +97,17 @@ def fill_template(template_file,dictionary):
     """
     Fills the template with the appropriate fields from the dictionary.
     """
+    #print "Inside fill template"
     with open(template_file,'r') as f:
         template_string = f.read()
+    #print template_string
     template_string = fill_task_fields(template_string,dictionary)
+    #print "Task:"
+    #print template_string
     template_string = fill_array_fields(template_string,dictionary)
+    #print "Array:"
+    #print template_string
     template_string = fill_standard_fields(template_string,dictionary)
+    #print "Full:"
+    #print template_string
     return template_string
