@@ -29,8 +29,9 @@ class Clean(SampleQsubProcess):
     run directory and moves the result back to storage and output directory. 
     """
 
-    def __init__(self,config,process_name='clean',**kwargs):
-        SampleQsubProcess.__init__(self,config,process_name=process_name,**kwargs)
+    def __init__(self,config,key=int(-1),pipeline_config=None,prev_step=None,process_name='clean',pipeline=None,**kwargs):
+        if not prev_step is None:
+            SampleQsubProcess.__init__(self,config,key=key,input_dir=prev_step.output_dir,output_dir=pipeline.output_dir,process_name=process_name,**kwargs)
 
     def __is_complete__(self,configs=None):
         return SampleQsubProcess.__is_complete__(self)

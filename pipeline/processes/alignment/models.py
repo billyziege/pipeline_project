@@ -14,15 +14,15 @@ class BwaAln(SampleQsubProcess):
     Prepares the bwa aln process
     """
 
-    def __init__(self,config,key=int(-1),process_name='bwa_aln',prev_step=None,bwa_threads=1,ref_fa='/mnt/speed/qc/sequencing/biodata/genomes/Hsapiens/GRCh37/bwa/GRCh37.fa',**kwargs):
+    def __init__(self,config,key=int(-1),process_name='bwa_aln',prev_step=None,bwa_threads=1,pipeline_config=None,**kwargs):
         """
         Initializes the  process object.
         """
         if not prev_step is None:
             if prev_step.__class__.__name__ == "ZcatMultiple":
                 self.input_fastq = prev_step.r1_uncompressed + ":" + prev_step.r2_uncompressed
+                self.ref_fa = pipeline_config.get('References','genome_fasta')
                 self.bwa_threads = bwa_threads
-                self.ref_fa = ref_fa
                 input_fastqs = self.input_fastq.split(":")
                 SampleQsubProcess.__init__(self,config,key=key,process_name=process_name,input_dir=prev_step.input_dir,output_dir=os.path.join(prev_step.output_dir,"align"),number_tasks=2*prev_step.number_tasks,**kwargs)
                 output_sais = []
@@ -39,7 +39,7 @@ class BwaSampe(SampleQsubProcess):
     Prepares the bwa sampe process for paired end samples only.
     """
 
-    def __init__(self,config,key=int(-1),sample=None,process_name='bwa_sampe',multi_fastq_file=None,ref_fa='/mnt/speed/qc/sequencing/biodata/genomes/Hsapiens/GRCh37/bwa/GRCh37.fa',prev_step=None,project=None,**kwargs):
+    def __init__(self,config,key=int(-1),sample=None,process_name='bwa_sampe',multi_fastq_file=None,ref_fa='/mnt/speed/qc/sequencing/biodata/genomes/Hsapiens/GRCh37/bwa/GRCh37.fa',prev_step=None,pipeline=None,**kwargs):
         """
         Initializes the  process object.
         """
@@ -50,7 +50,7 @@ class BwaSampe(SampleQsubProcess):
                 if sample.__class__.__name__ != "Sample":
                     raise Exception("Trying to start a qcpipeline process on a non-sample.")
                 SampleQsubProcess.__init__(self,config,key=key,sample=sample,process_name=process_name,input_dir=prev_step.output_dir,output_dir=prev_step.output_dir,number_tasks=prev_step.number_tasks/2,**kwargs)
-                self.project = project
+                self.project = pipeline.project
                 self.sample_key = sample.key
                 self.ref_fa = prev_step.ref_fa
                 if not multi_fastq_file is None:
@@ -79,6 +79,41 @@ class BwaSampe(SampleQsubProcess):
                     output_sams.append(output_sam)
                 self.output_sam = ":".join(output_sams)
 
+class BwaMem(SampleQsubProcess):
+    """
+    Prepares the bwa mem process for paired end samples only.
+    """
+
+    def __init__(self,config,key=int(-1),pipeline_config=None,prev_step=None,process_name='bwa_mem',pipeline=None,**kwargs):
+        """
+        Initializes the  process object.
+        """
+        if not prev_step is None:
+            if prev_step.__class__.__name__ == "ZcatMultiple":
+                SampleQsubProcess.__init__(self,config,key=key,process_name=process_name,input_dir=prev_step.output_dir,output_dir=os.path.join(prev_step.output_dir,"align"),number_tasks=prev_step.number_tasks,**kwargs)
+                multi_fastq_file = prev_step.multi_fastq_file
+                if not multi_fastq_file is None:
+                    self.multi_fastq_file = multi_fastq_file
+                    multi_fastq = grab_yaml(self.multi_fastq_file)
+                    lane_numbers = list_from_multi_fastq_object(multi_fastq,"lane")
+                    flowcells = list_from_multi_fastq_object(multi_fastq,"flowcell")
+                    input_r1_fastqs =  prev_step.r1_copied.split(":")
+                    input_r2_fastqs =  prev_step.r2_copied.split(":")
+                    input_r1_fastqs = [re.sub(r".gz$","",fastq) for fastq in input_r1_fastqs]
+                    input_r2_fastqs = [re.sub(r".gz$","",fastq) for fastq in input_r2_fastqs]
+                    self.lane_number = ":".join(lane_numbers)
+                    self.flowcell_key = ":".join(flowcells)
+                    self.input_fastq1 = ":".join(input_r1_fastqs)
+                    self.input_fastq2 = ":".join(input_r2_fastqs)
+                    output_sams = []
+                    for input_r1_fastq in input_r1_fastqs:
+                        output_sam = re.sub(prev_step.output_dir,self.output_dir,re.sub(".fastq",".sam",input_r1_fastq))
+                        output_sam = re.sub("_R1","",output_sam)
+                        output_sams.append(output_sam)
+                    self.output_sam = ":".join(output_sams)
+                self.bwa_threads = pipeline_config.get('Program specific parameters','bwa_threads')
+                self.ref_fa = pipeline_config.get('References','genome_fasta')
+                self.project = pipeline.project
 
 class SamConversion(SampleQsubProcess):
     """
@@ -90,7 +125,7 @@ class SamConversion(SampleQsubProcess):
         Initializes the  process object.
         """
         if not prev_step is None:
-            if prev_step.__class__.__name__ == "BwaSampe":
+            if prev_step.__class__.__name__ == "BwaSampe" or prev_step.__class__.__name__ == "BwaMem":
                 SampleQsubProcess.__init__(self,config,key=key,process_name=process_name,input_dir=prev_step.output_dir,output_dir=prev_step.output_dir,number_tasks=prev_step.number_tasks,**kwargs)
                 self.input_sam = prev_step.output_sam
                 self.output_bam, num = re.subn(r".sam",".bam",self.input_sam)
@@ -141,28 +176,35 @@ class IndelRealignment(Bam2BamQsubProcess):
     Prepares the indel realignment process.
     """
 
-    def __init__(self,config,key=int(-1),process_name='indel_realignment',ref_fa='/mnt/speed/qc/sequencing/biodata/genomes/Hsapiens/GRCh37/bwa/GRCh37.fa',dbsnp_vcf='/mnt/speed/qc/sequencing/biodata/genomes/Hsapiens/GRCh37/variation/dbsnp_137.vcf',prev_step=None,**kwargs):
+    def __init__(self,config,key=int(-1),process_name='indel_realignment',pipeline_config=None,prev_step=None,**kwargs):
         """
         Initializes the process object.
         """
         if not prev_step is None:
             Bam2BamQsubProcess.__init__(self,config,key=key,new_bam_description="realign",process_name=process_name,input_dir=prev_step.output_dir,output_dir=prev_step.output_dir,prev_step=prev_step,**kwargs)
             self.output_intervals = os.path.join(self.output_dir,self.sample_key + ".intervals");
-            self.ref_fa = ref_fa
-            self.dbsnp_vcf = dbsnp_vcf
+            self.ref_fa = pipeline_config.get('References','genome_fasta')
+            known_databases = []
+            known_databases.append(pipeline_config.get('References','gold_indels_vcf'))
+            known_databases.append(pipeline_config.get('References','one_k_indels_vcf'))
+            self.known_database = ":".join(known_databases)
             
 class BaseRecalibration(Bam2BamQsubProcess):
     """
     Prepares the base_recalibration process.
     """
 
-    def __init__(self,config,key=int(-1),process_name='base_recalibration',ref_fa='/mnt/speed/qc/sequencing/biodata/genomes/Hsapiens/GRCh37/bwa/GRCh37.fa',dbsnp_vcf='/mnt/speed/qc/sequencing/biodata/genomes/Hsapiens/GRCh37/variation/dbsnp_137.vcf',prev_step=None,**kwargs):
+    def __init__(self,config,key=int(-1),process_name='base_recalibration',pipeline_config=None,prev_step=None,**kwargs):
         """
         Initializes the process object.
         """
         if not prev_step is None:
             Bam2BamQsubProcess.__init__(self,config,key=key,new_bam_description="recal",process_name=process_name,input_dir=prev_step.output_dir,output_dir=prev_step.output_dir,prev_step=prev_step,**kwargs)
             self.output_recal = os.path.join(self.output_dir,self.sample_key + ".recal");
-            self.ref_fa = ref_fa
-            self.dbsnp_vcf = dbsnp_vcf
+            self.ref_fa = pipeline_config.get('References','genome_fasta')
+            known_databases = []
+            known_databases.append(pipeline_config.get('References','gold_indels_vcf'))
+            known_databases.append(pipeline_config.get('References','one_k_indels_vcf'))
+            known_databases.append(pipeline_config.get('References','dbsnp_vcf'))
+            self.known_database = ":".join(known_databases)
 

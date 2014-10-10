@@ -56,7 +56,11 @@ class GenericProcess(NumberedObject):
         """
         Returns true if self.state is 'Complete'.
         """
-        return self.state == 'Complete'
+        try:
+            return self.state == 'Complete'
+        except AttributeError:
+            #sys.stderr.write("The proess has no attribute state for sample "+self.sample_key)
+            return False
 
 class QsubProcess(GenericProcess):
     """
@@ -139,13 +143,16 @@ class QsubProcess(GenericProcess):
         """
         Checks to see if the complete files are created.
         """
-        if GenericProcess.__is_complete__(self) is False:
-            complete_files = self.complete_file.split(":")
-            for complete_file in complete_files:
-                if os.path.isfile(complete_file):
-                    continue
-                return False
-        return True
+        try:
+            if GenericProcess.__is_complete__(self) is False:
+                complete_files = self.complete_file.split(":")
+                for complete_file in complete_files:
+                    if os.path.isfile(complete_file):
+                        continue
+                    return False
+            return True
+        except AttributeError:
+            return False
 
     def __present_on_system__(self):
         """
@@ -157,10 +164,14 @@ class QsubProcess(GenericProcess):
         """
         Simply fills process_name template with appropriate info. 
         """
+        if configs["system"].get("Logging","debug") is "True":
+            print "Trying to fill " + self.qsub_file
         template_file= os.path.join(configs['system'].get('Common_directories','template'),configs['pipeline'].get('Template_files',self.process_name))
+        if configs["system"].get("Logging","debug") is "True":
+           print  "Template file " + template_file
         with open(self.qsub_file,'w') as f:
             if configs["system"].get("Logging","debug") is "True":
-                "Filling qsub with " + str(self.__dict__)
+                print "Filling qsub with " + str(self.__dict__)
             f.write(fill_template(template_file,self.__dict__))
 
     def __finish__(self,date=strftime("%Y%m%d",localtime()),time=strftime("%H:%M",localtime())):
@@ -171,7 +182,7 @@ class QsubProcess(GenericProcess):
         if hasattr(self,'tmp_dir') and not self.tmp_dir is None:
             for tmp_dir in self.tmp_dir.split(":"):
                 if os.path.isdir(tmp_dir):
-                    sys.stderr.write("Attempting to remove " + tmp_dir)
+                    sys.stderr.write("  Attempting to remove " + tmp_dir + "\n")
                     if not re.search('template',tmp_dir):
                         shutil.rmtree(tmp_dir)
 
@@ -369,6 +380,7 @@ class StandardPipeline(GenericProcess):
             if step_objects[current_step_key] is None: #This means the variable name in "current step" hasn't begun (and is really the next step)
                 if configs["system"].get("Logging","debug") is "True":
                     print "  Checking to see if this process should begin" 
+                    print "    by checking if "+prev_step_key+" is complete" 
                 is_complete = False
                 try:
                     is_complete = step_objects[prev_step_key].__is_complete__() #Check to see if the previous step has completed.

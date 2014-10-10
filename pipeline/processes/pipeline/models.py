@@ -150,15 +150,28 @@ class Bcbio(SampleQsubProcess):
             else: 
                 return False
         if hasattr(self, "snp_path") and not self.snp_path is None and hasattr(self,"analysis_ready_bam_path") and not self.analysis_ready_bam_path is None:
-            sys.stderr.write(self.snp_path+"\n")
-            sys.stderr.write(self.analysis_ready_bam_path+"\n")
             if not os.path.isfile(self.snp_path) or not os.path.isfile(self.analysis_ready_bam_path):
+                snp_file = False
+                bam_file = False
+                if not self.upload_dir is None:
+                    for file in os.listdir(os.path.join(self.upload_dir,self.description)):
+                        if file.endswith('.vcf'):
+                            snp_file = True 
+                        if file.endswith('.bam'):
+                            bam_file = True 
+                if not snp_file or not bam_file:
+                    if configs["system"].get("Logging","debug") is "True":
+                        print "At least one of the output files is missing for sample " + str(self.sample_key) + ":"
+                        if not os.path.isfile(self.snp_path):
+                            print "Missing "+ self.snp_path
+                        if not os.path.isfile(self.analysis_ready_bam_path):
+                            print "Missing "+ self.analysis_ready_bam_path
                 #os.remove(self.complete_file)
                 #template_dir = configs['system'].get('Common_directories','template')
                 #qsub_template = os.path.join(template_dir,configs['pipeline'].get('Template_files','bcbio_no_postprocess'))
                 #self.__fill_template__(qsub_template,os.path.join(self.output_dir,"bcbio_no_postprocess.sh"))
                 #self.__launch__(configs['system'],os.path.join(self.output_dir,"bcbio_no_postprocess.sh"))
-                return False
+                    return False
         else:
             check_file = os.path.join(current_dir,'project-summary.csv')
         #If the process is complete, check to make sure that the check file is created.  If not, send email once.

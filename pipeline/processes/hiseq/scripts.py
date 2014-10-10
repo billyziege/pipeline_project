@@ -44,10 +44,8 @@ def list_monitoring_dirs(directory):
     return dirs 
 
 def list_sample_dirs(directories):
-    print "directories: " + str(directories)
     sample_dirs = {}
     for directory in directories:
-        print "  "+directory
         for root, dirs, files in os.walk(directory):
             for f in files:
                 if f == 'SampleSheet.csv':
