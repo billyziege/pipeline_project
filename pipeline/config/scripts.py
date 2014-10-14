@@ -13,7 +13,7 @@ class MyConfigParser(ConfigParser):
         Return either the value of the parameter or None if there is an exception.
         """
         try:
-             return config.get(section,key)
+             return self.get(section,key)
         except:
              return default_value
     
