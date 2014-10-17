@@ -150,7 +150,7 @@ def things_to_do_if_bcbio_complete(configs,mockdb,pipeline,bcbio):
     else:
       output_subdir = 'ngv3'
     cp_input_dir = os.path.join(bcbio.upload_dir,bcbio.description)
-    cp_result_back = mockdb['CpResultBack'].__new__(configs['system'],sample=sample,bcbio=bcbio,input_dir=cp_input_dir,output_dir=bcbio.upload_dir,base_output_dir=pipeline.input_dir,output_subdir=output_subdir,process_name='cp')
+    cp_result_back = mockdb['CpResultBack'].__new__(configs['system'],sample=sample,pipeline_config=configs["pipeline"],prev_step=bcbio,pipeline=pipeline)
     cp_result_back.__fill_qsub_file__(configs)
     cp_result_back.__launch__(configs['system'])
     pipeline.cp_key = cp_result_back.key
