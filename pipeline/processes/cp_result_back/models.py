@@ -20,6 +20,8 @@ class CpResultBack(SampleQsubProcess):
             cp_input_dir_name = pipeline_config.safe_get('Common_directories','cp_subdir')
             if cp_input_dir_name is None:
                 cp_input_dir_name = ""
+                if prev_step.obj_type == "Bcbio":
+                    cp_input_dir = prev_step.description
             cp_input_dir = os.path.join(pipeline.output_dir,cp_input_dir_name)
             output_subdir_name = pipeline_config.safe_get('Common_directories','output_subdir','ngv3')
             cp_dir = os.path.join(pipeline.input_dir,output_subdir_name)
