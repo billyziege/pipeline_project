@@ -34,7 +34,7 @@ class KeyedObject:
     def __str__(self):
         output = []
         for k, v in self.__dict__.iteritems():
-            output.append(k +":"+ v)
+            output.append(k +":"+ str(v))
         return ",".join(output)
 
     def __unicode__(self):
@@ -111,7 +111,7 @@ class SetOfKeyedObjects:
 
     def __str__(self):
         output = []
-        for obj in self.objects:
+        for key,obj in self.objects.iteritems():
             output.append(obj.__str__())
         return "\n".join(output)
      
@@ -146,22 +146,28 @@ class SetOfKeyedObjects:
         vals = []
         d = {}
         for i in self.objects.keys():
-            val = getattr(self.objects[i],attr)
-            if val not in vals:
-                d[val]=[]
-                vals.extend([val])
-            d[val].append(i)
+            try:
+                val = getattr(self.objects[i],attr)
+                if val not in vals:
+                    d[val]=[]
+                    vals.extend([val])
+                d[val].append(i)
+            except AttributeError:
+                raise Exception("The object with key " + str(i) + "," + self.objects[i].__str__() + ", has no attribute "+ attr)
         return d
 
     def __attribute_value_to_object_dict__(self,attr):
         vals = []
         d = {}
         for i in self.objects.keys():
-            val = getattr(self.objects[i],attr)
-            if val not in vals:
-                d[val]=[]
-                vals.extend([val])
-            d[val].append(self.objects[i])
+            try:
+                val = getattr(self.objects[i],attr)
+                if val not in vals:
+                    d[val]=[]
+                    vals.extend([val])
+                d[val].append(self.objects[i])
+            except AttributeError:
+                raise Exception("The object with key " + str(i) + "," + self.objects[i].__str__() + ", has no attribute "+ attr)
         return d
 
     def __load__(self,config,no_children = True, base_dir = None, key=None):
@@ -393,8 +399,10 @@ class SetOfNumberedObjects(SetOfKeyedObjects):
         new_key = int(self.__max_key__(config)) + 1
         #init_keys = inspect.getargspec(self.cls.__init__)[0]
         instance = self.cls(config,key=int(new_key),*args,**kwargs)
-        self.objects.update({new_key:instance})
-        return instance
+        if hasattr(instance,"key"):
+            self.objects.update({new_key:instance})
+            return instance
+        return None
 
     def __get__(self,config,key,base_dir=None,**kwargs):
         if base_dir == None:

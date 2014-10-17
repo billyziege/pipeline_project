@@ -50,8 +50,6 @@ def continue_seq_run(configs,storage_devices,mockdb):
     """
     #for obj_type in sorted(mockdb.keys()):
     #    print obj_type
-    print mockdb['Flowcell']
-    print mockdb['SequencingRun']
     state_dict = mockdb['SequencingRun'].__attribute_value_to_object_dict__('state')
     try:
         for seq_run in state_dict['Running']:
