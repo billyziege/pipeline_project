@@ -58,7 +58,7 @@ def determine_run_type(directory):
     samplesheet_file = os.path.join(base_dir,"SampleSheet.csv")
     if not os.path.isfile(samplesheet_file):
         return None
-    sample_sheet_table =  csv.DictReader(open(sample_sheet_file,delimiter=',')
+    sample_sheet_table =  csv.DictReader(open(sample_sheet_file,delimiter=','))
     try:
         lane_numbers = set([row['Lane'] for row in table])
         if len(lane_numbers) == 2:

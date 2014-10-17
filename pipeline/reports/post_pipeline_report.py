@@ -2,11 +2,11 @@ import ConfigParser
 import sys
 import os
 import re
+import csv
 import argparse
 from texttable import Texttable
 from mockdb.initiate_mockdb import initiate_mockdb, save_mockdb
 from config.scripts import grab_thresholds_from_config
-from processes.parsing import table_reader
 
 def post_pipeline_report(mockdb,sample_list):
     sep = ','
@@ -294,7 +294,7 @@ def push_outliers_into_dicts(config,fname):
     This produces dictionaries for the outliers and their values for the
     statistics of interest.
     """
-    in_table = table_reader(fname)
+    in_table = csv.DictReader(open(fname,'r'),delimiter=',')
     outliers_dicts = {}
     #Identify the outliers
     statistic = 'Mean_target_coverage'

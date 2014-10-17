@@ -223,32 +223,15 @@ def things_to_do_if_initializing_pipeline_with_input_directory(configs,storage_d
         running_location = identify_running_location_with_most_currently_available(configs,storage_devices)
         parsed = parse_sample_sheet(configs['system'],mockdb,sample_dirs[sample][0])
         if base_output_dir is None:
-           base_output_dir = configs['pipeline'].get('Common_directories','archive_directory')
-        if (re.search('MSBP$',parsed['description']) and (pipeline_name == 'QualityControlPipeline')):
-            pipeline = mockdb['QualityControlPipeline'].__new__(configs['system'],input_dir=sample_dirs[sample][0],base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
-        elif (re.search('NGv3$',parsed['description']) and (pipeline_name == 'StandardPipeline')):
-            mockdb['StandardPipeline'].__new__(configs['system'],input_dir=sample_dirs[sample][0],base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
-        elif (pipeline_name == 'FastQCPipeline'):
-            mockdb['FastQCPipeline'].__new__(configs['system'],input_dir=sample_dirs[sample][0],base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
-        elif (re.search('MHC$',parsed['description']) and (pipeline_name == 'MHCPipeline')):
-            mockdb['MHCPipeline'].__new__(configs['system'],input_dir=sample_dirs[sample][0],base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
-        elif (re.search('NGv3plusUTR$',parsed['description']) and (pipeline_name == 'NGv3PlusPipeline')):
-            mockdb['NGv3PlusPipeline'].__new__(configs['system'],input_dir=sample_dirs[sample][0],base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],capture_target_bed=target_config.get("Pipeline",'NGv3plusUTR'),**parsed)
-        elif (re.search('MLEZHX1$',parsed['description']) and (pipeline_name == 'NGv3PlusPipeline')):
-            mockdb['NGv3PlusPipeline'].__new__(configs['system'],input_dir=sample_dirs[sample][0],base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],capture_target_bed=target_config.get("Pipeline",'MLEZHX1'),**parsed)
-        if ( pipeline_name == 'RD2Pipeline' ):
-            mockdb['RD2Pipeline'].__new__(configs['system'],input_dir=sample_dirs[sample][0],base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
-        if ( pipeline_name == 'DevelPipeline' ):
-            mockdb['DevelPipeline'].__new__(configs['system'],input_dir=sample_dirs[sample][0],base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
-        if ( pipeline_name == 'BBPipeline' ):
-            mockdb['BBPipeline'].__new__(configs['system'],input_dir=sample_dirs[sample][0],base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
-        if ( pipeline_name == 'BBPipeline' ):
-            mockdb['BBPipeline'].__new__(configs['system'],input_dir=sample_dirs[sample][0],base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
-        if ( pipeline_name == 'KanePipeline' ):
-            mockdb['KanePipeline'].__new__(configs['system'],input_dir=sample_dirs[sample][0],base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],**parsed)
-        if pipeline_name == 'TCSPipeline':
-            pipeline_steps = configs["pipeline"].get("Pipeline","steps").split(",")
-            mockdb['TCSPipeline'].__new__(configs['system'],input_dir=":".join(sample_dirs[sample]),base_output_dir=base_output_dir,running_location=running_location,storage_needed=configs['pipeline'].get('Storage','needed'),project=parsed['project_name'],pipeline_steps=pipeline_steps,**parsed)
+            base_output_dir = configs['pipeline'].get('Common_directories','archive_directory')
+        automation_parameters_config = MyConfigParser()
+        automation_parameters_config.read(configs["system"].get("Filenames","automation_config"))
+        description_pieces = parsed['description'].split('-')
+        pipeline_key = description_pieces[-1]
+        pipeline_name_for_sample = autmation_parameters_config.safe_get("Pipeline",pipeline_key)
+        if not pipeline_name_for_sample is pipeline_name:
+            continue
+        mockdb[pipeline_name].__new__(configs['system'],input_dir=sample_dirs[sample][0],pipeline_config=configs["pipeline"],project=parsed['project_name'],**parsed)
         flowcell_dict = mockdb['SequencingRun'].__attribute_value_to_object_dict__('flowcell_key')
         flowcell_dict = mockdb['SequencingRun'].__attribute_value_to_object_dict__('flowcell_key')
         if parsed['flowcell'].key in flowcell_dict:

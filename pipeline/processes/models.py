@@ -141,7 +141,7 @@ class QsubProcess(GenericProcess):
 
     def __is_complete__(self,*args,**kwargs):
         """
-        Checks to see if the complete files are created.
+        Checks to see if the complete files are created and finishes the object if it is.
         """
         try:
             if GenericProcess.__is_complete__(self) is False:
@@ -150,6 +150,7 @@ class QsubProcess(GenericProcess):
                     if os.path.isfile(complete_file):
                         continue
                     return False
+            self.__finish__(*args,**kwargs)
             return True
         except AttributeError:
             return False
@@ -160,13 +161,16 @@ class QsubProcess(GenericProcess):
         """
         return check_if_single_job_running_on_system(self.job_id)
 
-    def __fill_qsub_file__(self,configs):
+    def __fill_qsub_file__(self,configs,template_config=None):
         """
         Simply fills process_name template with appropriate info. 
         """
         if configs["system"].get("Logging","debug") is "True":
             print "Trying to fill " + self.qsub_file
-        template_file= os.path.join(configs['system'].get('Common_directories','template'),configs['pipeline'].get('Template_files',self.process_name))
+        if template_config is None:
+            template_file= os.path.join(configs['system'].get('Common_directories','template'),configs['pipeline'].get('Template_files',self.process_name))
+        else:
+            template_file= os.path.join(configs['system'].get('Common_directories','template'),template_config.get('Template_files',self.process_name))
         if configs["system"].get("Logging","debug") is "True":
            print  "Template file " + template_file
         with open(self.qsub_file,'w') as f:
@@ -185,6 +189,10 @@ class QsubProcess(GenericProcess):
                     sys.stderr.write("  Attempting to remove " + tmp_dir + "\n")
                     if not re.search('template',tmp_dir):
                         shutil.rmtree(tmp_dir)
+        if not os.path.isfile(self.complete_file):
+            with open(self.complete_file,'a'):
+                os.utime(self.complete_file, None)
+            
 
 class SampleQsubProcess(QsubProcess):
     """
@@ -233,53 +241,46 @@ class Bam2BamQsubProcess(SampleQsubProcess):
 class QualityControlPipeline(GenericProcess): #I am not positive this still works.
 
     def __init__(self,config,key=int(-1),sample=None,barcode=None,description=None,recipe=None,input_dir=None,base_output_dir=None,output_dir_front=None,date=strftime("%Y%m%d",localtime()),time=strftime("%H:%M:%S",localtime()),process_name='qcpipeline',sequencing_run=None,running_location='Speed',storage_needed=None,project=None,**kwargs):
-        if sample is None:
-            sample = Sample(config,key="dummy_sample_key")
-        if sample.__class__.__name__ != "Sample":
-            raise Exception("Trying to start a qcpipeline process on a non-sample.")
-        if barcode is None:
-            barcode = Barcode(config,key="dummy_barcode_key")
-        if barcode.__class__.__name__ != "Barcode":
-            raise Exception("Trying to start a qcpipeline process on a non-barcode.")
-        #The keys for the sub-processes in this pipeline
-        self.zcat_key = None
-        self.bcbio_key = None
-        self.snp_stats_key = None
-        self.cleaning_key = None
-        #Specific information about this pipeline
-        self.description = description
-        self.recipe = recipe
-        #if storage_needed is None:
-        #    self.storage_needed = config.get('Storage','needed')
-        #else:
-        self.storage_needed = storage_needed
-        self.input_dir = input_dir
-        self.running_location = running_location
-        self.date = date
-        self.project = project
-        if project is None:
-            if not base_output_dir is None:
-                self.output_dir = os.path.join(base_output_dir,sample.key + '_' + str(date))
+        if not sample is None:
+            #The keys for the sub-processes in this pipeline
+            self.zcat_key = None
+            self.bcbio_key = None
+            self.snp_stats_key = None
+            self.cleaning_key = None
+            #Specific information about this pipeline
+            self.description = description
+            self.recipe = recipe
+            #if storage_needed is None:
+            #    self.storage_needed = config.get('Storage','needed')
+            #else:
+            self.storage_needed = storage_needed
+            self.input_dir = input_dir
+            self.running_location = running_location
+            self.date = date
+            self.project = project
+            if project is None:
+                if not base_output_dir is None:
+                    self.output_dir = os.path.join(base_output_dir,sample.key + '_' + str(date))
+                else:
+                    self.output_dir = os.path.join(sample.key + '_' + str(date))
             else:
-                self.output_dir = os.path.join(sample.key + '_' + str(date))
-        else:
-            project_out = re.sub('_','-',project)
-            if re.search("[0-9]",project_out[0:1]):
-                project_out = "Project-" + project_out
-            if not base_output_dir is None:
-                self.output_dir = os.path.join(base_output_dir,project_out + "_" + sample.key + '_' + str(date))
+                project_out = re.sub('_','-',project)
+                if re.search("[0-9]",project_out[0:1]):
+                    project_out = "Project-" + project_out
+                if not base_output_dir is None:
+                    self.output_dir = os.path.join(base_output_dir,project_out + "_" + sample.key + '_' + str(date))
+                else:
+                    self.output_dir = project_out + "_" + sample.key + '_' + str(date)
+            if not os.path.exists(self.output_dir) and not re.search('dummy',sample.key):
+                os.makedirs(self.output_dir)
+            if sequencing_run != None:
+                self.sequencing_run_key=seqencing_run.key
             else:
-                self.output_dir = project_out + "_" + sample.key + '_' + str(date)
-        if not os.path.exists(self.output_dir) and not re.search('dummy',sample.key):
-            os.makedirs(self.output_dir)
-        if sequencing_run != None:
-            self.sequencing_run_key=seqencing_run.key
-        else:
-            self.sequencing_key=None
-        GenericProcess.__init__(self,config,key=key,process_name=process_name,**kwargs)
-        self.sample_key = sample.key
-        self.flowcell_key = barcode.flowcell_key
-        self.barcode_key = barcode.key
+                self.sequencing_key=None
+            GenericProcess.__init__(self,config,key=key,process_name=process_name,**kwargs)
+            self.sample_key = sample.key
+            self.flowcell_key = barcode.flowcell_key
+            self.barcode_key = barcode.key
 
     def __finish__(self,storage_device,*args,**kwargs):
         GenericProcess.__finish__(self,*args,**kwargs)
@@ -290,7 +291,7 @@ class GenericPipeline(GenericProcess):
     Generalization of any series of processes that follow one another serially.
     """
 
-    def __init__(self,config,process_name="generic_pipeline",**kwargs)
+    def __init__(self,config,process_name="generic_pipeline",**kwargs):
         GenericProcess.__init__(self,config,key=key,process_name=process_name,**kwargs)
 
     def __get_step_key__(self,step):
@@ -414,7 +415,7 @@ class StandardPipeline(GenericPipeline):
     Generalization of any post fastq pipeline that requires a sample and a sample sheet.
     """
 
-    def __init__(self,config,key=int(-1),sample=None,description=None,recipe=None,input_dir=None,pipeline_config=None,pipeline_key=None,process_name='qcpipeline',running_location='Speed',storage_needed=500000000,project=None,flowcell_dir_name=None,*args,**kwargs):
+    def __init__(self,config,key=int(-1),sample=None,description=None,recipe=None,input_dir=None,pipeline_config=None,pipeline_key=None,process_name='qcpipeline',running_location='Speed',storage_needed=500000000,project=None,flowcell_dir_name=None,seq_run_key=None,*args,**kwargs):
         if not pipeline_config is None or not pipeline_key is None:
             if sample is None:
                 sample = Sample(config,key="dummy_sample_key")
@@ -428,6 +429,7 @@ class StandardPipeline(GenericPipeline):
             self.storage_needed = storage_needed
             self.input_dir = input_dir
             self.running_location = running_location
+            self.seq_run_key = seq_run_key
             capture_target_bed = safe_get(autmation_parameters_config,"Target",pipeline_key)
             if not capture_target_bed is None:
                 self.capture_target_bed = capture_target_bed
@@ -508,7 +510,7 @@ class FastQCPipeline(StandardPipeline):
     def __init__(self,config,process_name='fastqcpipeline',**kwargs):
         StandardPipeline.__init__(self,config,process_name=process_name,**kwargs)
 
-def BclToFastqPipeline(GenericPipeline):
+class BclToFastqPipeline(GenericPipeline):
     """
     This pipeline calls casava and other scripts to analyze bcl outputs from the HiSeq
     data directroy producing fastq files.  Additional pipelines are launched once the
@@ -516,9 +518,9 @@ def BclToFastqPipeline(GenericPipeline):
     to facilitate the gathering of run statistics.
     """
 
-    def __init__(self,config,seq_run=None,process_name="bcltofastqpipeline",**kwargs)
+    def __init__(self,config,seq_run=None,process_name="bcltofastqpipeline",**kwargs):
         if not seq_run is None:
-            self.seq_run = seq_run.key
+            self.seq_run_key = seq_run.key
             self.flowcell_key = seq_run.flowcell_key
             self.input_dir = seq_run.output_dir
             output_name = seq_run.date + "_" + seq_run.machine.key + "_" + seq_run.run_number + "_" + seq_run.side + seq_run.flowcell_key
@@ -536,11 +538,13 @@ def BclToFastqPipeline(GenericPipeline):
         if not hasattr(self,"copy_bcls_key") or self.copy_bcls_key is None:
             self.__launch_copy_bcls__(configs,mockdb)
             return False
-        self.__handle_linear_steps__(configs,mockdb,*args,**kwargs):
-        if GenericProcess.__is_complete__(self,*args,**kwargs):
+        self.__handle_linear_steps__(configs,mockdb,*args,**kwargs)
+        self.state = "Running" #Linear steps assumes the last step complete means the pipeline is complete.  This is not true here.
+        casava = mockdb['Casava'].__get__(configs['system'],self.casava_key)
+        if casava.__do_all_relevant_pipelines_have_first_step_complete__(configs,mockdb):
+            self.__finish__(*args,**kwargs)
             return True
-        else:
-            return False
+        return False
 
     def __launch_copy_bcls__(self,configs,mockdb):
         """
@@ -548,14 +552,30 @@ def BclToFastqPipeline(GenericPipeline):
         """
         input_dir = os.path.join(self.input_dir,"Data/Intensities/BaseCalls")
         copy_bcls = mockdb['GenericCopy'].__new__(configs['system'],input_dir=input_dir,output_dir=self.output_dir)
-        self.copy_bcls_key = copy_bcls.key
+        self.generic_copy_key = copy_bcls.key
         copy_bcls.__fill_qsub_file__(configs)
         copy_bcls.__launch__(configs['system'])
 
-       #Start other pipelines (after casava is finished).  Once the first step is done on other pipelines start including fastqc_pipeline.  The move back is delayed until all data is copied.
-       #Touch the casava finished file in it.
-       #After casava --- md5, index_report.
-       #index_report.
+    def __finish__(self):
+        """
+        Finishes the bcltofastq pipeline.  This is separated
+        out due to the consolidation of multiple directories into a single email
+        and to isolate it for specific pipelines.
+        """
+        sample_dirs = list_sample_dirs(self.output_dir.split(":"))
+        for sample in sample_dirs:
+            for sample_dir in sample_dirs[sample]:
+                if (int(disk_usage(sample_dir)) < 200000):
+                    problem_dirs.append(sample_dir)
+        if len(problem_dirs) > 0:
+            message = "The following directory(ies) is(are) less than 200MB:\n"
+            for problem_dir in problem_dirs:
+                message += "\t" + problem_dir + "\n"
+            message += "Please check.\n"
+            send_email("Small sample directory",message,recipients='zerbeb@humgen.ucsf.edu,LaoR@humgen.ucsf.edu')  
+        GenericPipeline.__finish__()
+        return 1
+
 
 class DnanexusuploadPipeline(GenericPipeline):
 

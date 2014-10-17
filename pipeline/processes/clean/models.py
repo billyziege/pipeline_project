@@ -2,7 +2,7 @@ import os
 import re
 from time import strftime, localtime
 from physical_objects.hiseq.models import Sample
-from processes.models import SampleQsubProcess
+from processes.models import SampleQsubProcess,QsubProcess
 from processes.pipeline.models import Bcbio
 from template.scripts import fill_template
 
@@ -20,7 +20,7 @@ class CleanBcbio(SampleQsubProcess):
         SampleQsubProcess.__init__(self,config,key=key,sample=sample,input_dir=input_dir,output_dir=output_dir,process_name=process_name,complete_file=complete_file,**kwargs)
         self.sample_file = bcbio.sample_file
 
-    def __is_complete__(self,*args,*kwargs):
+    def __is_complete__(self,*args,**kwargs):
         return SampleQsubProcess.__is_complete__(self,*args,**kwargs)
 
 class Clean(SampleQsubProcess):
@@ -35,3 +35,15 @@ class Clean(SampleQsubProcess):
 
     def __is_complete__(self,*args,**kwargs):
         return SampleQsubProcess.__is_complete__(self,*args,**kwargs)
+
+class GenericClean(QsubProcess):
+    """
+    Same as above but with no sample info.
+    """
+
+    def __init__(self,config,key=int(-1),rm_dir=None,process_name='clean',**kwargs):
+        if not rm_dir is None:
+            QsubProcess.__init__(self,config,key=key,input_dir=rm_dir,process_name=process_name,**kwargs)
+
+    def __is_complete__(self,*args,**kwargs):
+        return QsubProcess.__is_complete__(self,*args,**kwargs)

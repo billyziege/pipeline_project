@@ -6,7 +6,7 @@ from mockdb.models import FormattingError
 from processes.hiseq.scripts import list_monitoring_dirs, list_sample_dirs
 from processes.hiseq.sequencing_run import determine_run_type
 from processes.transitions import things_to_do_if_zcat_complete, things_to_do_if_bcbio_complete, things_to_do_if_starting_pipeline
-from processes.transitions import things_to_do_if_sequencing_run_is_complete, things_to_do_if_snps_called
+from processes.transitions import things_to_do_if_snps_called
 from processes.transitions import things_to_do_if_bcbio_cleaning_complete, things_to_do_for_reports_object
 from processes.transitions import things_to_do_if_snp_stats_complete
 from manage_storage.disk_queries import disk_usage
@@ -29,7 +29,11 @@ def maintain_sequencing_run_objects(config,mockdb):
             flowcell_key = "dummy_flowcell"
             run_number = -1
             side = "dummy_side"
-        monitoring_dirs_keyed_by_flowcell[flowcell_key] = dir
+        try:
+            monitoring_dirs_keyed_by_flowcell[flowcell_key] = dir
+        except:
+            monitoring_dirs_keyed_by_flowcell = {}
+            monitoring_dirs_keyed_by_flowcell[flowcell_key] = dir
     db_flowcells = set(mockdb['SequencingRun'].__attribute_value_to_key_dict__('flowcell_key').keys())
     new_flowcells = set(monitoring_dirs_keyed_by_flowcell.keys()).difference(db_flowcells)
     for new_flowcell in new_flowcells:
@@ -39,59 +43,20 @@ def maintain_sequencing_run_objects(config,mockdb):
         seq_run=mockdb['SequencingRun'].__new__(config,flowcell=flowcell,machine=machine,date=date,run_number=run_number,side=side,run_type=run_type)
     return 1
 
-def initialize_bcltofastq_pipeline_for_finished_sequencing_runs(configs,storage_devices,mockdb):
+def continue_seq_run(configs,storage_devices,mockdb):
     """
     Checks running SequencingRuns and determines if they are complete.  If so, 
     the sequencing run is deligated to another function to continue with the next step. 
-    This is generally the casava pipeline. 
     """
+    #for obj_type in sorted(mockdb.keys()):
+    #    print obj_type
+    print mockdb['Flowcell']
+    print mockdb['SequencingRun']
     state_dict = mockdb['SequencingRun'].__attribute_value_to_object_dict__('state')
     try:
         for seq_run in state_dict['Running']:
-            if seq_run.__is_complete__():
-                seq_run.__start_bcltofastq_pipeline__(configs,mockdb)
-    except KeyError:
-        pass
-    return 1
-    
-def push_fastq_from_finished_casava(configs,storage_devices,mockdb,pipeline_name):
-    """
-    Finishes the casava pipeline.  This is separated
-    out due to the consolidation of multiple directories into a single email
-    and to isolate it for specific pipelines.
-    """
-    state_dict = mockdb['BclToFastqPipeline'].__attribute_value_to_object_dict__('state')
-    problem_dirs = []
-    try:
-        for casava_pipeline in state_dict['Running']:
-            if casava_pipeline.__is_complete__():
-                sample_dirs = list_sample_dirs(seq_run.output_dir.split(":"))
-                for sample in sample_dirs:
-                    for sample_dir in sample_dirs[sample]:
-                        if (int(disk_usage(sample_dir)) < 200000):
-                            problem_dirs.append(sample_dir)
-                #Initialize casava pipeline
-                casava_pipeline.__finish__()
-    except KeyError:
-        pass
-    if len(problem_dirs) > 0:
-        message = "The following directory(ies) is less than 200MB:\n"
-        for problem_dir in problem_dirs:
-            message += "\t" + problem_dir + "\n"
-        message += "Please check.\n"
-        send_email("Small sample directory",message,recipients='zerbeb@humgen.ucsf.edu,LaoR@humgen.ucsf.edu')  
-    return 1
-
-def continue_backup_processes(configs,storage_devices,mockdb):
-    """
-    Checks running SequencingRuns and determines if they are complete.  If so, 
-    the sequencing run is deligated to another function to continue with the next step. 
-    """
-    state_dict = mockdb['Backup'].__attribute_value_to_object_dict__('state')
-    try:
-        for backup in state_dict['Running']:
-            if backup.__is_complete__(configs,storage_devices[backup.location]):
-                backup.__finish__()
+            if seq_run.__is_complete__(configs,mockdb):
+                pass
     except KeyError:
         pass
     return 1

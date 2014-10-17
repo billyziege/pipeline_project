@@ -23,12 +23,12 @@ class DNANexusUpload(QsubProcess):
         if not self.pipeline_config is None:
             QsubProcess.__init__(self,config,key=key,input_dir=pipeline.input_dir,process_name=process_name,**kwargs)
 	    self.flowcell_key = pipeline.flowcell_key
-            flowcell_dir = basename(pipeline.input_dir)
+            flowcell_dir = os.path.basename(pipeline.input_dir)
             self.run_qc_metrics_dir = os.path.join(config.get('Common_directories','qc_metrics_run_log'),flowcell_dir)
             if not os.path.isfile(os.path.join(self.run_qc_metrics_dir),"run_qc_metrics.txt"):
                 #Send an email that run qc metrics file is missing. (send_email(subject,message))
                 raise Exception ("Run QC metrics file is missing")
-            self.flowcell_dir_name = basename(self.input_dir)
+            self.flowcell_dir_name = os.path.basename(self.input_dir)
             self.hiseq_run_log_dir = os.path.join(config.get("Common directories","hiseq_run_log"),self.flowcell_dir_name) #Look at other object to how to get things from the sys config.
 
     def __finish__(configs):

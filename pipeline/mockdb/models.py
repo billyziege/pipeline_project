@@ -32,7 +32,10 @@ class KeyedObject:
         #    setattr(self,k,v)
 
     def __str__(self):
-        return self.key
+        output = []
+        for k, v in self.__dict__.iteritems():
+            output.append(k +":"+ v)
+        return ",".join(output)
 
     def __unicode__(self):
         return self.key
@@ -106,6 +109,12 @@ class SetOfKeyedObjects:
         for k, v in kwargs.iteritems():
             setattr(self,k,v)
 
+    def __str__(self):
+        output = []
+        for obj in self.objects:
+            output.append(obj.__str__())
+        return "\n".join(output)
+     
     def __key_set__(self,cls):
         key_set = set([])
         for key, instance in self.objects.iteritems():
@@ -403,9 +412,6 @@ class SetOfNumberedObjects(SetOfKeyedObjects):
 		self.objects[k]=instance
         return instance
 
-    def __str__(self):
-        return str(self.key)
-     
     def __save__(self,config,base_dir=None):
         if base_dir == None:
             base_dir = config.get('Common_directories','mockdb')

@@ -3,7 +3,7 @@ import re
 import sys
 from manage_storage.disk_queries import disk_usage
 from physical_objects.hiseq.models import Sample
-from processes.models import GenericProcess, SampleQsubProcess
+from processes.models import GenericProcess, SampleQsubProcess, QsubProcess
 from template.scripts import fill_template
 from sge_email.scripts import send_email
 from processes.pipeline.bcbio_config_interaction import grab_yaml

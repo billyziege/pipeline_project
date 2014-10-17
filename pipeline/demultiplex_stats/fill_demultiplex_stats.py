@@ -7,7 +7,7 @@ import ConfigParser
 from mockdb.initiate_mockdb import initiate_mockdb, save_mockdb
 from processes.parsing import parse_sequencing_run_dir
 from demultiplex_stats.extract_stats import extract_barcode_lane_stats, calculate_lane_total, calculate_weighted_percent
-from processes.hiseq.scripts import translate_sample_name
+from processes.hiseq.sample_sheet import translate_sample_name
 from processes.hiseq.sequencing_run import determine_run_type
 
 def fill_demultiplex_stats(config,mockdb,directory,flowcell,machine):

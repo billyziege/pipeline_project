@@ -29,25 +29,20 @@ class FlowcellStatisticsReports(GenericProcess):
         Initiates the report object attached to the flowcell and sequencing run
         but not attached to any pipelines as of yet.
         """
-        if flowcell is None:
-            flowcell = Flowcell(config,key="dummy_flowcell_key")
-        if flowcell.__class__.__name__ != "Flowcell":
-            raise Exception("Trying to start a flowcell statistics reports object on a non-flowcell.")
-        if seq_run is None:
-            seq_run = SequencingRun(config,key=-1)
-        GenericProcess.__init__(self,config,key=key,process_name=process_name,**kwargs)
-        if base_output_dir == None:
-            self.base_output_dir = config.get('Common_directories','flowcell_reports')
-        else:
-            self.base_output_dir = base_output_dir
-        self.flowcell_key = flowcell.key
-        self.sequencing_run_key = seq_run.key
-        self.sequencing_run_type = seq_run.run_type
-        self.pipelines = None
-        numbers = config.get('Flowcell_reports','numbers').split(',')
-        for number in numbers:
-            setattr(self,'flowcell_report_' + str(number) + '_key',None)
-        self.state = 'Running'
+        if not flowcell is None:
+            GenericProcess.__init__(self,config,key=key,process_name=process_name,**kwargs)
+            if base_output_dir == None:
+                self.base_output_dir = config.get('Common_directories','flowcell_reports')
+            else:
+                self.base_output_dir = base_output_dir
+            self.flowcell_key = flowcell.key
+            self.sequencing_run_key = seq_run.key
+            self.sequencing_run_type = seq_run.run_type
+            self.pipelines = None
+            numbers = config.get('Flowcell_reports','numbers').split(',')
+            for number in numbers:
+                setattr(self,'flowcell_report_' + str(number) + '_key',None)
+            self.state = 'Running'
 
     def __add_pipeline__(self,pipeline):
         """
