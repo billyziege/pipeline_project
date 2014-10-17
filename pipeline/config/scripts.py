@@ -13,7 +13,7 @@ class MyConfigParser(ConfigParser):
         Return either the value of the parameter or None if there is an exception.
         """
         try:
-             return config.get(section,key)
+             return self.get(section,key)
         except:
              return default_value
     
@@ -38,13 +38,3 @@ def grab_thresholds_from_config(config,section,key):
     if high == '':
         high = None
     return low, high
-
-def safe_get(config,section,key):
-    """
-    Return either the value of the parameter or None if there is an exception.
-    """
-    try:
-         return config.get(section,key).split(',')
-    except:
-         None
-    
