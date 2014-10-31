@@ -264,7 +264,7 @@ def things_to_do_if_sequencing_run_is_complete(configs,storage_devices,mockdb,se
 
 def things_to_do_if_initializing_pipeline_with_input_directory(configs,storage_devices,mockdb,source_dir,pipeline_name=None,base_output_dir=None):
     sample_dirs = list_sample_dirs(source_dir)
-    target_config = ConfigParser.ConfigParser()
+    target_config = MyConfigParser()
     target_config.read(configs["system"].get("Filenames","target_config"))
     for sample in sample_dirs:
         running_location = identify_running_location_with_most_currently_available(configs,storage_devices)
