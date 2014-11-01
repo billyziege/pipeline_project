@@ -22,7 +22,7 @@ def maintain_sequencing_run_objects(config,mockdb):
     monitoring_dirs = list_monitoring_dirs(config.get('Common_directories','hiseq_output'))
     for dir in monitoring_dirs:
         try:
-            [date,machine_key,run_number,side,flowcell_key] = parse_sequencing_run_dir(nd)
+            [date,machine_key,run_number,side,flowcell_key] = parse_sequencing_run_dir(dir)
         except:
             date = None
             machine_key = "dummy_machine"
@@ -30,17 +30,21 @@ def maintain_sequencing_run_objects(config,mockdb):
             run_number = -1
             side = "dummy_side"
         try:
-            monitoring_dirs_keyed_by_flowcell[flowcell_key] = dir
+            if not date is None:
+                monitoring_dirs_keyed_by_flowcell[flowcell_key] = dir
         except:
             monitoring_dirs_keyed_by_flowcell = {}
             monitoring_dirs_keyed_by_flowcell[flowcell_key] = dir
     db_flowcells = set(mockdb['SequencingRun'].__attribute_value_to_key_dict__('flowcell_key').keys())
     new_flowcells = set(monitoring_dirs_keyed_by_flowcell.keys()).difference(db_flowcells)
+    if config.get("Logging","debug") is "True":
+        print "new flowcells: "+ str(new_flowcells)
     for new_flowcell in new_flowcells:
+        [date,machine_key,run_number,side,flowcell_key] = parse_sequencing_run_dir(monitoring_dirs_keyed_by_flowcell[new_flowcell])
         machine = mockdb['HiSeqMachine'].__get__(config,key=machine_key)
         flowcell = mockdb['Flowcell'].__get__(config,key=flowcell_key)
         run_type = determine_run_type(monitoring_dirs_keyed_by_flowcell[flowcell_key])
-        seq_run=mockdb['SequencingRun'].__new__(config,flowcell=flowcell,machine=machine,date=date,run_number=run_number,side=side,run_type=run_type)
+        seq_run=mockdb['SequencingRun'].__new__(config,input_dir=monitoring_dirs_keyed_by_flowcell[new_flowcell],flowcell=flowcell,machine=machine,date=date,run_number=run_number,side=side,run_type=run_type)
     return 1
 
 def continue_seq_run(configs,storage_devices,mockdb):
@@ -53,6 +57,7 @@ def continue_seq_run(configs,storage_devices,mockdb):
     state_dict = mockdb['SequencingRun'].__attribute_value_to_object_dict__('state')
     try:
         for seq_run in state_dict['Running']:
+            print seq_run
             if seq_run.__is_complete__(configs,mockdb):
                 pass
     except KeyError:

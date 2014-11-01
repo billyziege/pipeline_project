@@ -17,7 +17,6 @@ from mockdb.scripts import translate_underscores_to_capitals
 
 def begin_next_step(configs,mockdb,pipeline,step_objects,next_step_key,prev_step_key):
     """The begin functions are to be used with linear pipelines"""
-    sys.stderr.write("Beginning "+next_step_key+" for "+pipeline.sample_key+"\n")
     try:
         step_objects[next_step_key] = globals()["begin_"+next_step_key](configs,mockdb,pipeline,step_objects,prev_step_key=prev_step_key)
     except KeyError:
@@ -29,13 +28,14 @@ def begin_generic_step(configs,mockdb,pipeline,step_objects,next_step_key,prev_s
     After working on this for a while, I noticed that most steps do the same exact things when begun.  This function generalizes this.
     """
     if hasattr(pipeline, "sample_key"):
+        sys.stderr.write("Beginning "+next_step_key+" for "+pipeline.sample_key+"\n")
         return begin_generic_sample_step(configs,mockdb,pipeline,step_objects,next_step_key,prev_step_key)
     return begin_generic_unlabelled_step(configs,mockdb,pipeline,step_objects,next_step_key,prev_step_key)
 
 def begin_generic_unlabelled_step(configs,mockdb,pipeline,step_objects,next_step_key,prev_step_key):
     """
     """
-    next_step_obj = mockdb[translate_underscores_to_capitals(next_step_key)].__new__(configs['system'],pipeline_config=configs["pipeline"],pipeline=pipeline)
+    next_step_obj = mockdb[translate_underscores_to_capitals(next_step_key)].__new__(configs['system'],pipeline_config=configs["pipeline"],pipeline=pipeline,prev_step=step_objects[prev_step_key])
     if configs["system"].get("Logging","debug") is "True":
        print "  "+translate_underscores_to_capitals(next_step_key)+": " + str(next_step_obj.key) 
     setattr(pipeline,next_step_key+"_key",next_step_obj.key)

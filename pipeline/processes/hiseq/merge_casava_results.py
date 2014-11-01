@@ -47,32 +47,35 @@ def move_undetermined_directories_of_min_length(output_dir,sample_sheet_obj_list
     """
     Copies the undetermined directories corresponding to the min index length to the output directory.
     """
-    if merge_by_length is True:
+    if merge_by_lane is True:
         min_index_lengths = {} #Lane -> index_length
         for sample_sheet_obj in sample_sheet_obj_list.list:
             lane = sample_sheet_obj.meta_data["Lane"]
-            index_length = int(sample_sheet_obj.meta_data["Index_length"])
-            split_dir = os.path.join(output_dir,"split/"+str(index_length)+"_"+str(lane))
+            split_dir = os.path.join(output_dir,"split/"+str(sample_sheet_obj.meta_data["Index_length"])+"_"+str(lane))
+            index_length = int(sample_sheet_obj.meta_data["Index_length"].split("-")[0])
             if not lane in min_index_lengths:
-                min_index_lengths[lane] = index_length
+                min_index_lengths[lane] = {}
+                min_index_lengths[lane]["length"] = index_length
+                min_index_lengths[lane]["name"] = sample_sheet_obj.meta_data["Index_length"]
             else:
-                if min_index_length[lane] > index_length:
-                    min_index_length[lane] = index_length
+                if min_index_lengths[lane] > index_length:
+                    min_index_lengths[lane]["length"] = index_length
+                    min_index_lengths[lane]["name"] = str(sample_sheet_obj.meta_data["Index_length"])
         undetermined_output_dir = os.path.join(output_dir,'Undetermined_indices')
-        for lane in min_index_length:
-            undetermined_dir = os.path.join(prev_step.output_dir,"split/"+str(min_index_length[lane])+"_"+str(lane)+"/Undetermined_indices/Sample_lane"+str(lane))
-            shutil.copytree(undetermined_dir,undetermined_output_dir)
+        for lane in min_index_lengths:
+            undetermined_dir = os.path.join(output_dir,"split/"+str(min_index_lengths[lane]["name"])+"_"+str(lane)+"/Undetermined_indices/Sample_lane"+str(lane))
+            shutil.copytree(undetermined_dir,os.path.join(undetermined_output_dir,"Sample_lane"+str(lane)))
     else:
         initial = True
         for sample_sheet_obj in sample_sheet_obj_list.list:
-            index_length = int(sample_sheet_obj.meta_data["Index_length"])
+            index_length = int(sample_sheet_obj.meta_data["Index_length"].split("-")[0])
             split_dir = os.path.join(output_dir,"split/"+str(index_length))
             if initial:
                 initial = False
                 min_index_length = index_length
             if min_index_length > index_length:
                 min_index_length = index_length
-        undetermined_dir = os.path.join(prev_step.output_dir,"split/"+str(min_index_length)+"/Undetermined_indices")
+        undetermined_dir = os.path.join(prev_step.output_dir,"split/"+str(sample_sheet_obj.meta_data["Index_length"])+"/Undetermined_indices")
         shutil.move(undetermined_dir,output_dir)
     return
             
@@ -90,11 +93,12 @@ def merge_casava_fastq_directories(sample_sheet_obj_list,output_dir,merge_type="
         specific_sample_sheet_obj_list = sample_sheet_obj_list.__filter_sample_sheet_objects__({"SampleID": sample_id}) #Do each sample separately.
         project_ids = specific_sample_sheet_obj_list.__get_column_values__("SampleProject")
         sample_output_dir = os.path.join(output_dir,"Project_"+project_ids[0]+"/Sample_"+sample_id)
+        #Write out the file
         single_sample_sheet_obj_list = specific_sample_sheet_obj_list.__merge_all_sample_sheet_objects__()
         if not os.path.isdir(sample_output_dir):
             os.makedirs(sample_output_dir)
         single_sample_sheet_obj_list.list[0].sample_sheet_table.__write_file__(os.path.join(sample_output_dir,"SampleSheet.csv"))
-        for sample_sheet_obj in sample_sheet_obj_list.list:
+        for sample_sheet_obj in specific_sample_sheet_obj_list.list:
             input_dir = sample_sheet_obj.__get_meta_datum__("original_dir")
             for filename in os.listdir(input_dir):
                 if filename.endswith('fastq.gz'):
@@ -109,6 +113,7 @@ def merge_casava_fastq_directories(sample_sheet_obj_list,output_dir,merge_type="
                     if merge_type == "symbolic_link":
                         os.symlink(input_path,output_path)
                     if merge_type == "move":
+                        #print "moving " + input_path + " to " + output_path 
                         shutil.move(input_path,output_path)
                     if merge_type ==  "copy":
                         shutil.copy(input_path,output_path)

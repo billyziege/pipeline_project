@@ -149,7 +149,12 @@ class SampleSheetObj():
             index_index = self.sample_sheet_table.__get_field_index__("Index")
             for row in self.sample_sheet_table.rows:
                 row[sampleid_index] = clean_sample_name(row[sampleid_index])
-                row[index_index] = clean_index(row[index_index])
+                index_pieces = []
+                for index_piece in row[index_index].split('-'):
+                    cleaned_index = clean_index(index_piece)
+                    if len(cleaned_index) > 0:
+                        index_pieces.append(cleaned_index)
+                row[index_index] = "-".join(index_pieces)
              
     def __get_sample_sheet_table__(self):
         """
@@ -179,9 +184,12 @@ class SampleSheetObj():
             index_lengths = self.__get_meta_datum__("Index_length").split('-')
             for i in range(1,number_reads-1):
                 seq_read = seq_read_set.seq_reads[i]
-                seq_read.__set_actual_length(index_length[i-1])
-        mask = seq_read.__write_as_string__() 
-        self.__set_meta_data__("mask",mask)
+                try:
+                    seq_read.__set_actual_length__(index_lengths[i-1])
+                except IndexError: ##None '-' index in same flowcell as '-' index 
+                    seq_read.__set_actual_length__(0)
+        mask = seq_read_set.__write_as_string__() 
+        self.__set_meta_datum__("mask",mask)
  
     def __set_meta_datum__(self,key,value,overwrite = True):
         """

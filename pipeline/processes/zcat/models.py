@@ -9,13 +9,13 @@ from sge_email.scripts import send_email
 from processes.pipeline.bcbio_config_interaction import grab_yaml
 from processes.hiseq.multi_fastq import list_from_multi_fastq_object
 
-class GenericCp(QsubProcess):
+class GenericCopy(QsubProcess):
     """
     A class for processes that don't necessarily need sample data.
     """
-    def __init__(self,config,key=-1,output_dir=None,input_dir=None,process_name='generic_cp',**kwargs):
+    def __init__(self,config,key=-1,output_dir=None,input_dir=None,process_name='generic_copy',**kwargs):
         if not input_dir is None:
-            QsubProcess(self,config,key=key,output_dir=output_dir,input_dir=input_dir,process_name=process_name,**kwargs)
+            QsubProcess.__init__(self,config,key=key,output_dir=output_dir,input_dir=input_dir,process_name=process_name,**kwargs)
             
             
 

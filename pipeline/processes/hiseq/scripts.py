@@ -2,6 +2,7 @@ import re
 import os
 import yaml
 import argparse
+import shutil
 from processes.hiseq.sample_sheet import SampleSheetObj
 
 def list_monitoring_dirs(directory):
@@ -60,6 +61,17 @@ def list_project_sample_dirs(directories):
                     for sample_dir in sample_dirs_obj[sample]:
                         project_dirs_obj[dirname]["Sample_"+sample].append(sample_dir)
     return project_dirs_obj
+
+def copy_all_xml(input_dir,output_dir):
+    """
+    Copies the xml files from the input to the output dir.
+    """
+    files = os.listdir(input_dir)
+    for file in files:
+        if os.path.isfile(os.path.join(input_dir,file)):
+            if file.endswith('.xml'):
+                shutil.copy(os.path.join(input_dir,file),os.path.join(output_dir,file))
+
 
 if __name__ == '__main__':
     #Handle arguments

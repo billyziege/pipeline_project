@@ -5,15 +5,19 @@ import pytz
 import subprocess
 import re
 import sys
+from config.scripts import MyConfigParser
+from manage_storage.disk_queries import disk_usage
 from time import strftime, localtime
 from mockdb.models import NumberedObject
 from mockdb.scripts import translate_underscores_to_capitals
 from physical_objects.models import Sample
 from physical_objects.hiseq.models import Flowcell, Barcode
+from sge_email.scripts import send_email
 from sge_queries.nodes import grab_good_node
 from sge_queries.jobs import check_if_single_job_running_on_system
 from template.scripts import fill_template
 from processes.transitions import begin_next_step
+from processes.hiseq.scripts import list_sample_dirs, copy_all_xml
 
 class GenericProcess(NumberedObject):
     """
@@ -44,13 +48,13 @@ class GenericProcess(NumberedObject):
         """
         self.state = new_state
 
-    def __finish__(self,date=strftime("%Y%m%d",localtime()),time=strftime("%H:%M",localtime()),*args,**kwargs):
+    def __finish__(self,*args,**kwargs):
         """
         Finishes the generic process by changing the state to complete and recording the date and time.
         """
         self.__change_state__('Complete')
-        self.end_time = time
-        self.end_date = date
+        self.end_time = strftime("%H:%M",localtime())
+        self.end_date = strftime("%Y%m%d",localtime())
 
     def __is_complete__(self,*args,**kwargs):
         """
@@ -147,6 +151,7 @@ class QsubProcess(GenericProcess):
             if GenericProcess.__is_complete__(self) is False:
                 complete_files = self.complete_file.split(":")
                 for complete_file in complete_files:
+                    print complete_file
                     if os.path.isfile(complete_file):
                         continue
                     return False
@@ -168,6 +173,9 @@ class QsubProcess(GenericProcess):
         if configs["system"].get("Logging","debug") is "True":
             print "Trying to fill " + self.qsub_file
         if template_config is None:
+            print configs['system'].get('Common_directories','template')
+            print self.process_name
+            print configs['pipeline'].get('Template_files',self.process_name)
             template_file= os.path.join(configs['system'].get('Common_directories','template'),configs['pipeline'].get('Template_files',self.process_name))
         else:
             template_file= os.path.join(configs['system'].get('Common_directories','template'),template_config.get('Template_files',self.process_name))
@@ -189,9 +197,10 @@ class QsubProcess(GenericProcess):
                     sys.stderr.write("  Attempting to remove " + tmp_dir + "\n")
                     if not re.search('template',tmp_dir):
                         shutil.rmtree(tmp_dir)
-        if not os.path.isfile(self.complete_file):
-            with open(self.complete_file,'a'):
-                os.utime(self.complete_file, None)
+        for complete_file in self.complete_file.split(":"):
+            if not os.path.isfile(complete_file):
+                with open(complete_file,'a'):
+                    os.utime(complete_file, None)
             
 
 class SampleQsubProcess(QsubProcess):
@@ -291,7 +300,7 @@ class GenericPipeline(GenericProcess):
     Generalization of any series of processes that follow one another serially.
     """
 
-    def __init__(self,config,process_name="generic_pipeline",**kwargs):
+    def __init__(self,config,key=-1,process_name="generic_pipeline",**kwargs):
         GenericProcess.__init__(self,config,key=key,process_name=process_name,**kwargs)
 
     def __get_step_key__(self,step):
@@ -330,7 +339,7 @@ class GenericPipeline(GenericProcess):
             return False
         return True
  
-    def __handle_linear_steps__(self,configs,mockdb,storage_devices=None,*args,**kwargs):
+    def __handle_linear_steps__(self,configs,mockdb,storage_devices=None,skip_finish=False,*args,**kwargs):
         if not self.__check_first_step__(configs["pipeline"]):
             print("The pipeline for "+self.sample_key+" has not started but is apparently running.  Moving to initiated but not running.")
             return 1
@@ -348,15 +357,17 @@ class GenericPipeline(GenericProcess):
                        print "  It should" 
                     step_objects[prev_step_key].__finish__(*args,**kwargs)
                     step_objects = begin_next_step(configs,mockdb,self,step_objects,current_step_key,prev_step_key)
-                return 1
+                return False
             prev_step_key = current_step_key
         if step_objects[prev_step_key].__is_complete__(configs,mockdb,*args,**kwargs): #Check to see if the last step has completed.
             step_objects[prev_step_key].__finish__(configs,*args,**kwargs)
-            if not storage_devices is None:
-                self.__finish__(storage_device=storage_devices[self.running_location],*args,**kwargs)
-            else:
-                self.__finish__(*args,**kwargs)
-        return 1
+            if not skip_finish:
+                if not storage_devices is None:
+                    self.__finish__(storage_device=storage_devices[self.running_location],*args,**kwargs)
+                else:
+                    self.__finish__(*args,**kwargs)
+            return True
+        return False
             
     def __copy_altered_parameters_to_config__(self,config):
         altered_parameters = self.__expand_altered_parameters__()
@@ -518,15 +529,17 @@ class BclToFastqPipeline(GenericPipeline):
     to facilitate the gathering of run statistics.
     """
 
-    def __init__(self,config,seq_run=None,process_name="bcltofastqpipeline",**kwargs):
+    def __init__(self,config,key=-1,seq_run=None,running_location='Speed',process_name="bcltofastqpipeline",**kwargs):
         if not seq_run is None:
             self.seq_run_key = seq_run.key
             self.flowcell_key = seq_run.flowcell_key
             self.input_dir = seq_run.output_dir
-            output_name = seq_run.date + "_" + seq_run.machine.key + "_" + seq_run.run_number + "_" + seq_run.side + seq_run.flowcell_key
+            output_name = str(seq_run.date) + "_" + str(seq_run.machine_key) + "_" + str(seq_run.run_number) + "_" + str(seq_run.side) + str(seq_run.flowcell_key)
             self.output_dir = os.path.join(config.get('Common_directories','base_working_directory'),process_name+"/"+output_name)
+            GenericPipeline.__init__(self,config,key=key,process_name=process_name,**kwargs)
             if not os.path.exists(self.output_dir):
                os.makedirs(self.output_dir)
+            self.running_location = running_location
 
     def __is_complete__(self,configs,mockdb,*args,**kwargs):
         """
@@ -535,33 +548,50 @@ class BclToFastqPipeline(GenericPipeline):
         """
         if GenericProcess.__is_complete__(self,*args,**kwargs):
             return True
-        if not hasattr(self,"copy_bcls_key") or self.copy_bcls_key is None:
+        if not hasattr(self,"generic_copy_key") or self.generic_copy_key is None:
+            if configs["system"].get("Logging","debug") is "True":
+                print "Copying bcls"
             self.__launch_copy_bcls__(configs,mockdb)
             return False
-        self.__handle_linear_steps__(configs,mockdb,*args,**kwargs)
-        self.state = "Running" #Linear steps assumes the last step complete means the pipeline is complete.  This is not true here.
-        casava = mockdb['Casava'].__get__(configs['system'],self.casava_key)
-        if casava.__do_all_relevant_pipelines_have_first_step_complete__(configs,mockdb):
-            self.__finish__(*args,**kwargs)
-            return True
+        current_configs = {}
+        current_configs["system"] = configs["system"]
+        pipeline_config = MyConfigParser()
+        current_configs["pipeline"] = pipeline_config
+        pipeline_config.read(configs["system"].get('Pipeline','BclToFastqPipeline'))
+        if self.__handle_linear_steps__(current_configs,mockdb,skip_finish=True,*args,**kwargs):
+            casava = mockdb['Casava'].__get__(configs['system'],self.casava_key)
+            if casava.__do_all_relevant_pipelines_have_first_step_complete__(current_configs,mockdb):
+                self.__finish__(*args,**kwargs)
+                return True
         return False
 
     def __launch_copy_bcls__(self,configs,mockdb):
         """
         This launches the process that will archive the fastq directories.
         """
-        input_dir = os.path.join(self.input_dir,"Data/Intensities/BaseCalls")
-        copy_bcls = mockdb['GenericCopy'].__new__(configs['system'],input_dir=input_dir,output_dir=self.output_dir)
+        input_dir = os.path.join(self.input_dir,"Data/Intensities")
+        output_dir = os.path.join(self.output_dir,"Data/Intensities")
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+        copy_all_xml(self.input_dir,self.output_dir)
+        copy_all_xml(os.path.join(self.input_dir,"Data"),os.path.join(self.output_dir,"Data"))
+        current_configs = {}
+        current_configs["system"] = configs["system"]
+        pipeline_config = MyConfigParser()
+        current_configs["pipeline"] = pipeline_config
+        pipeline_config.read(configs["system"].get('Pipeline','BclToFastqPipeline'))
+        copy_bcls = mockdb['GenericCopy'].__new__(configs['system'],input_dir=input_dir,output_dir=output_dir)
         self.generic_copy_key = copy_bcls.key
-        copy_bcls.__fill_qsub_file__(configs)
+        copy_bcls.__fill_qsub_file__(current_configs)
         copy_bcls.__launch__(configs['system'])
 
-    def __finish__(self):
+    def __finish__(self,*args,**kwargs):
         """
         Finishes the bcltofastq pipeline.  This is separated
         out due to the consolidation of multiple directories into a single email
         and to isolate it for specific pipelines.
         """
+        problem_dirs = []
         sample_dirs = list_sample_dirs(self.output_dir.split(":"))
         for sample in sample_dirs:
             for sample_dir in sample_dirs[sample]:
@@ -572,8 +602,8 @@ class BclToFastqPipeline(GenericPipeline):
             for problem_dir in problem_dirs:
                 message += "\t" + problem_dir + "\n"
             message += "Please check.\n"
-            send_email("Small sample directory",message,recipients='zerbeb@humgen.ucsf.edu,LaoR@humgen.ucsf.edu')  
-        GenericPipeline.__finish__()
+            #send_email("Small sample directory",message,recipients='zerbeb@humgen.ucsf.edu,LaoR@humgen.ucsf.edu')  
+        GenericPipeline.__finish__(self,*args,**kwargs)
         return 1
 
 

@@ -3,6 +3,7 @@ import time
 import datetime
 import sys
 import re
+import csv
 import ConfigParser
 from mockdb.initiate_mockdb import initiate_mockdb, save_mockdb
 from processes.parsing import parse_sequencing_run_dir, get_sequencing_run_base_dir
@@ -55,10 +56,10 @@ def determine_run_type(directory):
     is returned.
     """
     base_dir = get_sequencing_run_base_dir(directory)
-    samplesheet_file = os.path.join(base_dir,"SampleSheet.csv")
-    if not os.path.isfile(samplesheet_file):
+    sample_sheet_file = os.path.join(base_dir,"SampleSheet.csv")
+    if not os.path.isfile(sample_sheet_file):
         return None
-    sample_sheet_table =  csv.DictReader(open(sample_sheet_file,delimiter=','))
+    sample_sheet_table =  csv.DictReader(open(sample_sheet_file),delimiter=',')
     try:
         lane_numbers = set([row['Lane'] for row in table])
         if len(lane_numbers) == 2:

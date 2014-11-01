@@ -60,8 +60,6 @@ if system_config.get("Logging","debug") is "True":
     print "Initializing finished dirs"
 continue_seq_run(configs,storage_devices,mockdb)
 
-#Start and finish casava
-initialize_casava_for_finished_sequencing_runs(configs,storage_devices,mockdb)
 #Identify new directories or push the results of casava (fastq) into the appropriate pipeline
 if options.source_dir != None and options.dest_dir != None:
     if system_config.get("Logging","debug") is "True":
