@@ -50,7 +50,7 @@ class SequencingRun(GenericProcess):
             self.output_dir = os.path.join(config.get('Common_directories','hiseq_output'),output_name)
             self.complete_file = os.path.join(config.get('Common_directories','hiseq_output'),output_name+"/"+config.get('Filenames','bcls_ready'))
             self.no_delete = no_delete
-            self.interop_archived = "False"
+            self.interop_archived = False
 
     def __start_bcltofastq_pipeline__(self,configs,mockdb):
         """
@@ -162,12 +162,9 @@ class SequencingRun(GenericProcess):
         """
         if configs["system"].get("Logging","debug") is "True":
             print "Checking to see if seq run is complete (and advancing post-seq run pipeline"
-        if GenericProcess.__is_complete__(self,*args,**kwargs):
-            return True
         if not os.path.isfile(self.complete_file):
             return False
-        print self.complete_file
-        if not self.interop_archived is True:
+        if not hasattr(self,"interop_archived") or self.interop_archived is False:
             output_name = os.path.basename(self.output_dir)
             if not self.__archive_sequencing_run_data__(configs,self.output_dir,os.path.join(configs["system"].get('Common_directories','hiseq_run_log'),output_name)):
                 return False

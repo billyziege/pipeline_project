@@ -13,7 +13,7 @@ parser = argparse.ArgumentParser(description='Manages data and submits new jobs.
 parser.add_argument('-i', dest='source_dir', nargs='+', help='fastq source', default=None)
 parser.add_argument('-o', dest='dest_dir', help='vcf destination', default=None)
 parser.add_argument('-p', '--pipeline', dest='pipeline', help='The version of the pipeline', default='QualityControlPipeline')
-parser.add_argument('--system_config', dest='system_config_file', help='The system configuration file', default='/home/sequencing/src/devel_pipeline/pipeline/config/ihg_system.cfg')
+parser.add_argument('--system_config', dest='system_config_file', help='The system configuration file', default='/home/sequencing/src/pipeline_project/pipeline/config/ihg_system.cfg')
 parser.add_argument('-d', '--debug', dest='debug', action='store_true', help='Turn debugging on', default=False)
 options = parser.parse_args()
 if options.debug is True:
@@ -57,7 +57,7 @@ if system_config.get("Logging","debug") is "True":
     print "Analyzing sequencing dir"
 maintain_sequencing_run_objects(system_config,mockdb)
 if system_config.get("Logging","debug") is "True":
-    print "Initializing finished dirs"
+    print "Continuing sequencing runs "
 continue_seq_run(configs,storage_devices,mockdb)
 
 #Identify new directories or push the results of casava (fastq) into the appropriate pipeline
@@ -68,8 +68,6 @@ if options.source_dir != None and options.dest_dir != None:
     things_to_do_if_initializing_pipeline_with_input_directory(configs,storage_devices,mockdb,options.source_dir,base_output_dir=options.dest_dir,pipeline_name=options.pipeline)
 else:
     for pipeline_name in pipeline_config.keys():
-        if system_config.get("Logging","debug") is "True":
-            print "  for pipeline " + pipeline_name
         configs.update({'pipeline':pipeline_config[pipeline_name]})
     
 #push_pipeline_from_finished_casava(configs,storage_devices,mockdb,pipeline_name)
