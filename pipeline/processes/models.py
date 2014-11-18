@@ -426,14 +426,14 @@ class StandardPipeline(GenericPipeline):
     Generalization of any post fastq pipeline that requires a sample and a sample sheet.
     """
 
-    def __init__(self,config,key=int(-1),sample=None,description=None,recipe=None,input_dir=None,pipeline_config=None,pipeline_key=None,process_name='qcpipeline',running_location='Speed',storage_needed=500000000,project=None,flowcell_dir_name=None,seq_run_key=None,*args,**kwargs):
+    def __init__(self,config,key=int(-1),sample=None,description=None,recipe=None,input_dir=None,pipeline_config=None,pipeline_key=None,process_name='qcpipeline',running_location='Speed',storage_needed=500000000,project=None,flowcell_dir_name=None,seq_run_key=None,date=strftime("%Y%m%d",localtime()),*args,**kwargs):
         if not pipeline_config is None or not pipeline_key is None:
             if sample is None:
                 sample = Sample(config,key="dummy_sample_key")
             if sample.__class__.__name__ != "Sample":
                 raise Exception("Trying to start a qcpipeline process on a non-sample.")
-            automation_parameters_config = ConfigParser.ConfigParser()
-            automation_parameters_config.read(configs["system"].get("Filenames","automation_config"))
+            automation_parameters_config = MyConfigParser()
+            automation_parameters_config.read(config.get("Filenames","automation_config"))
             #Specific information about this pipeline
             self.description = description
             self.recipe = recipe
@@ -441,13 +441,13 @@ class StandardPipeline(GenericPipeline):
             self.input_dir = input_dir
             self.running_location = running_location
             self.seq_run_key = seq_run_key
-            capture_target_bed = safe_get(autmation_parameters_config,"Target",pipeline_key)
+            capture_target_bed = automation_parameters_config.safe_get("Target",pipeline_key)
             if not capture_target_bed is None:
                 self.capture_target_bed = capture_target_bed
             if pipeline_config is None:
-                pipeline_name = safe_get(autmation_parameters_config,"Pipeline",pipeline_key)
-                pipeline_config = ConfigParser.ConfigParser()
-                pipeline_config.read(system_config.get('Pipeline',pipeline_name))
+                pipeline_name = automation_parameters_config.safe_get("Pipeline",pipeline_key)
+                pipeline_config = MyConfigParser()
+                pipeline_config.read(config.get('Pipeline',pipeline_name))
             pipeline_steps = pipeline_config.get('Pipeline','steps')
             for step in pipeline_steps:
                 setattr(self,step+"_key",None)
@@ -456,7 +456,7 @@ class StandardPipeline(GenericPipeline):
                 self.client_dir = self.input_dir
             else:
                 sample_dir_name = sample.key
-                if not str(sample_dir_name).beginswith("Sample_"):
+                if not str(sample_dir_name).startswith("Sample_"):
                     sample_dir_name = "Sample_" + sample_dir_name
                 self.client_dir = os.path.join(config.get('Common_directories','casava_output'),flowcell_dir_name+"/Project_"+str(project)+"/"+sample_dir_name)
             base_client_dir = config.get('Common_directories','casava_output')
