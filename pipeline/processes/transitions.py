@@ -4,6 +4,7 @@ import sys
 import re
 import datetime
 from processes.parsing import parse_sample_sheet
+from processes.parsing import parse_description_into_dictionary
 from processes.hiseq.scripts import list_monitoring_dirs, list_sample_dirs
 from processes.hiseq.sequencing_run import determine_run_type
 from manage_storage.scripts import identify_running_location_with_most_currently_available
@@ -226,8 +227,14 @@ def things_to_do_if_initializing_pipeline_with_input_directory(configs,storage_d
             base_output_dir = configs['pipeline'].get('Common_directories','archive_directory')
         automation_parameters_config = MyConfigParser()
         automation_parameters_config.read(configs["system"].get("Filenames","automation_config"))
-        description_pieces = parsed['description'].split('-')
-        pipeline_key = description_pieces[-1]
+        description_dict = parse_description_into_dictionary(parsed['description'])
+        if 'pipeline' in description_dict:
+            pipeline_key =  description_dict['pipeline']
+        else:
+            description_pieces = parsed['description'].split('-')
+            pipeline_key = description_pieces[-1]
+        if re.search('CD1LHZ',pipeline_key):
+            pipeline_key = 'CD1LHZ'
         pipeline_name_for_sample = autmation_parameters_config.safe_get("Pipeline",pipeline_key)
         if not pipeline_name_for_sample is pipeline_name:
             continue

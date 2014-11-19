@@ -8,6 +8,7 @@ from demultiplex_stats.fill_demultiplex_stats import fill_demultiplex_stats
 from physical_objects.hiseq.models import Flowcell, HiSeqMachine
 from processes.models import GenericProcess, StandardPipeline, QsubProcess
 from processes.parsing import parse_sample_sheet
+from processes.parsing import parse_description_into_dictionary
 from processes.hiseq.sample_sheet import clean_sample_name, SampleSheetObjList
 from processes.hiseq.sample_sheet import SampleSheetFormatException, send_missing_sample_sheet_email
 from processes.hiseq.scripts import list_project_sample_dirs, list_sample_dirs
@@ -284,13 +285,21 @@ class Casava(QsubProcess):
             #running_location = identify_running_location_with_most_currently_available(configs,storage_devices)
             running_location = "Speed"
             parsed = parse_sample_sheet(configs['system'],mockdb,sample_dirs[sample][0])
-            description_pieces = parsed['description'].split('-')
-            pipeline_key = description_pieces[-1]
+            description_dict = parse_description_into_dictionary(parsed['description'])
+            if 'pipeline' in description_dict:
+                pipeline_key =  description_dict['pipeline']
+            else:
+                description_pieces = parsed['description'].split('-')
+                pipeline_key = description_pieces[-1]
+            if re.search('CD1LHZ',pipeline_key):
+                pipeline_key = 'CD1LHZ'
             pipeline_name = automation_parameters_config.safe_get("Pipeline",pipeline_key)
             mockdb["FastQCPipeline"].__new__(configs['system'],input_dir=sample_dirs[sample][0],flowcell_dir_name=flowcell_dir_name,project=parsed['project_name'],**parsed)
             if pipeline_name is None:
                 continue
-            mockdb[pipeline_name].__new__(configs['system'],input_dir=sample_dirs[sample][0],pipeline_key=pipeline_key,seq_run_key=self.seq_run_key,project=parsed['project_name'],flowcell_dir_name=flowcell_dir_name,**parsed)
+            if configs["system"].get("Logging","debug") is "True":
+                print "Starting " + pipeline_name
+            pipeline = mockdb[pipeline_name].__new__(configs['system'],input_dir=sample_dirs[sample][0],pipeline_key=pipeline_key,seq_run_key=self.seq_run_key,project=parsed['project_name'],flowcell_dir_name=flowcell_dir_name,**parsed)
 
     def __do_all_relevant_pipelines_have_first_step_complete__(self,configs,mockdb):
         """

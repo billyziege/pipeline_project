@@ -2,6 +2,7 @@ import os
 import sys
 import re
 import csv
+import argparse
 from processes.hiseq.scripts import list_sample_dirs
 from processes.hiseq.sample_sheet import clean_sample_name, clean_index
 
@@ -74,3 +75,25 @@ def get_sequencing_run_base_dir(directory):
         (head,tail) = os.path.split(head)
     return os.path.join(head,tail)
 
+def parse_description_into_dictionary(description):
+    """
+    We use the description in the sample sheet to pass information to later steps.  The format
+    is key1__value1--key2__value2--...  This function parses the description and returns a dict
+    of type { key1: value1, key2: value2, ...}
+    """
+    out_dict = {}
+    pieces = description.split('--')
+    for piece in pieces:
+        content = piece.split('__')
+        if len(content) == 2:  #Not everything in the description meets the dictionary format.
+            out_dict.update({content[0]: content[1]})
+    return out_dict
+
+if __name__ == '__main__':
+    #Handle arguments
+    parser = argparse.ArgumentParser(description='Test various functions in this package')
+    parser.add_argument('--description', dest="description", type=str, help='Transforms a string into dictionary according to the agreed upon description format.',default=None)
+
+    args = parser.parse_args()
+    if not args.description is None:
+        print parse_description_into_dictionary(args.description)

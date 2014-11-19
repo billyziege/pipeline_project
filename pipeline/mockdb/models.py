@@ -192,7 +192,7 @@ class SetOfKeyedObjects:
                     for line in f:
                         vals = line.rstrip().split(',')
                         if len(vals) != len(keys):
-                            raise FormattingError("The formatting in {0} is incorrect.  The number of keys and the number of values are different.\n".format(db_fname))
+                            raise FormattingError("The formatting in {0} is incorrect.  The number of keys and the number of values are different in the following line:\n{1}\n".format(db_fname,str(line)))
                         instance = self.cls(config)
                         for i in range(0,len(vals)):
                             if vals[i] == 'None':
