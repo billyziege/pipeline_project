@@ -17,7 +17,7 @@ class SampleSheetFormatException(Exception):
 class MyTable():
     """
     Provides an accessible framework to access a table by adding the method fieldnames (similar to 
-    csv reader.
+    csv reader.)
     """
 
     def __init__(self):
@@ -224,11 +224,12 @@ class SampleSheetObj():
             output.append(str(self.meta_data[key]))
         return "_".join(output)
 
-    def __print__(self,*args,**kwargs):
+    def __print__(self,print_meta_data=True,*args,**kwargs):
         """
         Prints a line for the meta data and then the table content.
         """
-        print self.__string_from_meta_data__(*args,**kwargs)
+        if print_meta_data is True:
+            print self.__string_from_meta_data__(*args,**kwargs)
         self.sample_sheet_table.__print__(*args,**kwargs)
        
 
@@ -247,7 +248,10 @@ class SampleSheetObj():
             if use_length:
                 pieces = row[column_index].split("-")
                 pieces_length = [str(len(piece)) for piece in pieces]
-                if "-".join(pieces_length) == str(value):
+                for i in range(len(pieces_length),len(value.split('-'))):
+                    pieces_length.append("0")
+                pieces_string = "-".join(pieces_length)
+                if pieces_string == str(value):
                     new_sample_sheet_table.__add_row__(row)
         return new_sample_sheet_table
 
@@ -360,7 +364,6 @@ class SampleSheetObjList():
                 for value in values:
                     pieces = value.split("-") #Indexes sometimes have a "-".  Casava interprets these as separate reads.
                     pieces_length = [str(len(piece)) for piece in pieces]
-                    #For the case that the
                     for i in range(len(pieces_length),int(sample_sheet_obj.__get_meta_datum__(column_name+"_number"))):
                         pieces_length.append(str(0)) #Multiplexing single indexed samples with mutli-indexed samples requires single indexed samples have 0 in the actual length of additional reads.
                     values_temp.append("-".join(pieces_length))
@@ -404,7 +407,6 @@ class SampleSheetObjList():
         """
         for sample_sheet_obj in self.list:
             sample_sheet_obj.__print__(*args,**kwargs)
-            print("")
 
     def __get_column_values__(self,column_name):
         """
@@ -511,7 +513,7 @@ if __name__ == '__main__':
         if args.write is None:
             new_list.__print__(meta_keys=["Index_length","Lane"])
         else:
-            new_list.__create_directories_and_write_files__(args.write,meta_keys=["Index_length","Lane"])
+            new_list.__create_meta_directories_and_write_files__(args.write,meta_keys=["Index_length","Lane"])
     if not args.load_multiple is None:
         sample_sheet_obj_list.__load_sample_sheets_from_meta_directories__(args.load_multiple,["Index","Lane"])
         sample_sheet_obj_list.__print__()
