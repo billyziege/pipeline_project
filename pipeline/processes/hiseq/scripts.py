@@ -24,6 +24,8 @@ def list_sample_dirs(directories):
     sample_dirs = {}
     for directory in directories:
         for root, dirs, files in os.walk(directory):
+            if not re.search('Sample_',root):
+                continue
             for f in files:
                 if f == 'SampleSheet.csv':
                     sample_sheet_file = os.path.join(root,f)
