@@ -13,6 +13,20 @@ from manage_storage.disk_queries import disk_usage
 from processes.parsing import parse_sequencing_run_dir
 from sge_email.scripts import send_email
 
+def add_sequencing_run_object(config,mockdb,input_dir,output_dir=None,sample_sheet=None):
+    """
+    Reads in the directories in the hiseq output directory and compares it to what's in the 
+    SequencingRun database.  If it is a new directory, a new sequencing run object is created in
+    the Running state.
+    """
+    [date,machine_key,run_number,side,flowcell_key] = parse_sequencing_run_dir(input_dir)
+    machine = mockdb['HiSeqMachine'].__get__(config,key=machine_key)
+    flowcell = mockdb['Flowcell'].__get__(config,key=flowcell_key)
+    run_type = determine_run_type(input_dir)
+    seq_run=mockdb['SequencingRun'].__new__(config,input_dir=input_dir,fastq_archive=output_dir,flowcell=flowcell,machine=machine,date=date,run_number=run_number,side=side,run_type=run_type,sample_sheet=sample_sheet)
+    seq_run.state = 'Running'
+    return 1
+
 def maintain_sequencing_run_objects(config,mockdb):
     """
     Reads in the directories in the hiseq output directory and compares it to what's in the 
@@ -42,12 +56,7 @@ def maintain_sequencing_run_objects(config,mockdb):
         #print "monitoring flowcells: " + str(monitoring_dirs_keyed_by_flowcell)
         print "new flowcells: "+ str(new_flowcells)
     for new_flowcell in new_flowcells:
-        [date,machine_key,run_number,side,flowcell_key] = parse_sequencing_run_dir(monitoring_dirs_keyed_by_flowcell[new_flowcell])
-        machine = mockdb['HiSeqMachine'].__get__(config,key=machine_key)
-        flowcell = mockdb['Flowcell'].__get__(config,key=flowcell_key)
-        run_type = determine_run_type(monitoring_dirs_keyed_by_flowcell[flowcell_key])
-        seq_run=mockdb['SequencingRun'].__new__(config,input_dir=monitoring_dirs_keyed_by_flowcell[new_flowcell],flowcell=flowcell,machine=machine,date=date,run_number=run_number,side=side,run_type=run_type)
-        seq_run.state = 'Running'
+        add_sequencing_run_object(config,mockdb,input_dir=monitoring_dirs_keyed_by_flowcell[new_flowcell])
     return 1
 
 def continue_seq_run(configs,storage_devices,mockdb):
@@ -134,6 +143,8 @@ def advance_running_std_pipelines(configs,mockdb,pipeline_name,*args,**kwargs):
     state_dict = mockdb[pipeline_name].__attribute_value_to_object_dict__('state')
     try:
         for pipeline in state_dict['Running']:
+            if configs["system"].get("Logging","debug") is "True":
+                print pipeline
             pipeline.__copy_altered_parameters_to_config__(configs["pipeline"])
             if configs["pipeline"].has_option("Pipeline","steps"): #New interface for allowing external definition of linear pipelines
                 pipeline.__handle_linear_steps__(configs,mockdb,*args,**kwargs)
