@@ -30,9 +30,10 @@ class SummaryStats(SampleQsubProcess):
         self.snp_path = bcbio.snp_path
         if not os.path.isfile(self.snp_path) and bcbio.key != -1:
             snp_dir = os.path.dirname(self.snp_path)
-            for file in os.listdir(snp_dir):
-                if file.endswith("combined-effects.vcf"):
-                    self.snp_path = os.path.join(snp_dir,file)
+            if os.path.isdir(snp_dir):
+                for file in os.listdir(snp_dir):
+                    if file.endswith("combined-effects.vcf"):
+                        self.snp_path = os.path.join(snp_dir,file)
         self.bam_path = bcbio.analysis_ready_bam_path
         if self.bam_path is None and not bcbio.description is None:
             bam_path = os.path.join(bcbio.output_dir,"bamprep/"+bcbio.description)
@@ -89,7 +90,7 @@ class SummaryStats(SampleQsubProcess):
         self.percentage_in_db_snp = None
         self.ts_tv_ratio = None
 
-    def __is_complete__(self,configs):
+    def __is_complete__(self,configs,mockdb,*args,**kwargs):
         """
         Since concordance search is an optional sub-process, this function checks for
         both the completeness of the self concordance program and the necessity,
