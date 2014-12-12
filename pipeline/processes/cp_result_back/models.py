@@ -4,6 +4,7 @@ from config.scripts import MyConfigParser
 from time import strftime, localtime
 from physical_objects.hiseq.models import Sample
 from processes.models import SampleQsubProcess
+from processes.pipeline.bcbio_config_interaction import grab_yaml
 from template.scripts import fill_template
 
 
@@ -21,7 +22,11 @@ class CpResultBack(SampleQsubProcess):
             if cp_input_dir_name is None:
                 cp_input_dir_name = ""
                 if prev_step.obj_type == "CleanBcbio":
-                    cp_input_dir = prev_step.description
+                    for root, dirs, files in os.walk(prev_step.output_dir,topdown=False):
+                        for filename in files:
+                            if filename.endswith(".vcf"):
+                                full_path = os.path.join(root,filename)
+                                cp_indput_dir = os.path.dirname(full_path)
             cp_input_dir = os.path.join(pipeline.output_dir,cp_input_dir_name)
             output_subdir_name = pipeline_config.safe_get('Common_directories','output_subdir','ngv3')
             cp_dir = os.path.join(pipeline.input_dir,output_subdir_name)
@@ -33,6 +38,3 @@ class CpResultBack(SampleQsubProcess):
                 self.md5_file = os.path.join(cp_dir,self.sample_key + "_exome_md5checksums.txt")
             else:
                 self.md5_file = "exome_md5checksums.txt"
-
-    def __is_complete__(self,configs=None):
-        return SampleQsubProcess.__is_complete__(self)
