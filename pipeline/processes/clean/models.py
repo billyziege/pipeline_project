@@ -20,9 +20,6 @@ class CleanBcbio(SampleQsubProcess):
         SampleQsubProcess.__init__(self,config,key=key,sample=sample,input_dir=input_dir,output_dir=output_dir,process_name=process_name,complete_file=complete_file,**kwargs)
         self.sample_file = bcbio.sample_file
 
-    def __is_complete__(self,*args,**kwargs):
-        return SampleQsubProcess.__is_complete__(self,*args,**kwargs)
-
 class Clean(SampleQsubProcess):
     """
     Runs the clean process that removes superfluous information in the
@@ -33,9 +30,6 @@ class Clean(SampleQsubProcess):
         if not prev_step is None:
             SampleQsubProcess.__init__(self,config,key=key,input_dir=prev_step.output_dir,output_dir=pipeline.output_dir,process_name=process_name,**kwargs)
 
-    def __is_complete__(self,*args,**kwargs):
-        return SampleQsubProcess.__is_complete__(self,*args,**kwargs)
-
 class GenericClean(QsubProcess):
     """
     Same as above but with no sample info.
@@ -44,6 +38,3 @@ class GenericClean(QsubProcess):
     def __init__(self,config,key=int(-1),rm_dir=None,process_name='clean',**kwargs):
         if not rm_dir is None:
             QsubProcess.__init__(self,config,key=key,input_dir=rm_dir,process_name=process_name,**kwargs)
-
-    def __is_complete__(self,*args,**kwargs):
-        return QsubProcess.__is_complete__(self,*args,**kwargs)
