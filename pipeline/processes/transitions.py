@@ -36,7 +36,10 @@ def begin_generic_step(configs,mockdb,pipeline,step_objects,next_step_key,prev_s
 def begin_generic_unlabelled_step(configs,mockdb,pipeline,step_objects,next_step_key,prev_step_key):
     """
     """
-    next_step_obj = mockdb[translate_underscores_to_capitals(next_step_key)].__new__(configs['system'],pipeline_config=configs["pipeline"],pipeline=pipeline,prev_step=step_objects[prev_step_key])
+    if prev_step_key is None:
+        next_step_obj = mockdb[translate_underscores_to_capitals(next_step_key)].__new__(configs['system'],pipeline_config=configs["pipeline"],pipeline=pipeline)
+    else:
+        next_step_obj = mockdb[translate_underscores_to_capitals(next_step_key)].__new__(configs['system'],pipeline_config=configs["pipeline"],pipeline=pipeline,prev_step=step_objects[prev_step_key])
     if configs["system"].get("Logging","debug") is "True":
        print "  "+translate_underscores_to_capitals(next_step_key)+": " + str(next_step_obj.key) 
     setattr(pipeline,next_step_key+"_key",next_step_obj.key)
@@ -187,21 +190,17 @@ def things_to_do_if_bcbio_cleaning_complete(mockdb,pipeline,clean_bcbio,storage_
     return 1
 
 def things_to_do_if_starting_pipeline(configs,mockdb,pipeline):
-    sample = mockdb['Sample'].__get__(configs['system'],pipeline.sample_key)
     if configs["pipeline"].has_option("Pipeline","steps"): #New interface for allowing external definition of linear pipelines
         step_order, step_objects = pipeline.__steps_to_objects__(configs["system"],configs["pipeline"],mockdb)
         first_step = step_order[0]
-        if first_step == "zcat_multiple":
-            step_objects = begin_next_step(configs,mockdb,pipeline,step_objects,first_step,None)
-            pipeline.state = 'Running'
-            return 1
-        if first_step == "cat":
+        if first_step == "zcat_multiple" or first_step == "cat" or first_step == 'd_n_a_nexus_upload':
             step_objects = begin_next_step(configs,mockdb,pipeline,step_objects,first_step,None)
             pipeline.state = 'Running'
             return 1
     section_header = pipeline.running_location + '_directories'
     base_output_dir = configs['pipeline'].get(section_header,'working_directory')
     try:
+        sample = mockdb['Sample'].__get__(configs['system'],pipeline.sample_key)
         project_out = re.sub('_','-',pipeline.project)
         if re.search("[0-9]",project_out[0:1]):
             project_out = "Project-" + project_out
@@ -228,17 +227,15 @@ def things_to_do_if_initializing_pipeline_with_input_directory(configs,storage_d
         automation_parameters_config = MyConfigParser()
         automation_parameters_config.read(configs["system"].get("Filenames","automation_config"))
         description_dict = parse_description_into_dictionary(parsed['description'])
-        if 'pipeline' in description_dict:
-            pipeline_key =  description_dict['pipeline']
+        if 'Pipeline' in description_dict:
+            pipeline_key =  description_dict['Pipeline']
         else:
-            description_pieces = parsed['description'].split('-')
+            description_pieces = parsed['description'].split('_')
             pipeline_key = description_pieces[-1]
-        if re.search('CD1LHZ',pipeline_key):
-            pipeline_key = 'CD1LHZ'
-        pipeline_name_for_sample = autmation_parameters_config.safe_get("Pipeline",pipeline_key)
-        if not pipeline_name_for_sample is pipeline_name:
+        pipeline_name_for_sample = automation_parameters_config.safe_get("Pipeline",pipeline_key)
+        if not pipeline_name_for_sample == pipeline_name:
             continue
-        mockdb[pipeline_name].__new__(configs['system'],input_dir=sample_dirs[sample][0],pipeline_config=configs["pipeline"],project=parsed['project_name'],**parsed)
+        mockdb[pipeline_name].__new__(configs['system'],input_dir=sample_dirs[sample][0],pipeline_config=configs["pipeline"],project=parsed['project_name'],pipeline_key=pipeline_key,**parsed)
         flowcell_dict = mockdb['SequencingRun'].__attribute_value_to_object_dict__('flowcell_key')
         flowcell_dict = mockdb['SequencingRun'].__attribute_value_to_object_dict__('flowcell_key')
         if parsed['flowcell'].key in flowcell_dict:
@@ -254,6 +251,38 @@ def things_to_do_if_initializing_pipeline_with_input_directory(configs,storage_d
                 fill_demultiplex_stats(configs['system'],mockdb,seq_run.output_dir,flowcell,machine)
             except:
                 pass
+    return 1
+
+def things_to_do_if_initializing_flowcell_pipeline_with_input_directory(configs,storage_devices,mockdb,source_dir,pipeline_name=None,base_output_dir=None):
+    """
+    Starts pipelines that read the entire flowcell data.
+    """
+    if configs["system"].get("Logging","debug") is "True":
+        print "  Starting post casava flowcell pipelines"
+    flowcell_dir_name = os.path.basename(source_dir)
+    automation_parameters_config = MyConfigParser()
+    automation_parameters_config.read(configs["system"].get("Filenames","automation_config"))
+    running_location = "Speed"
+    parsed = parse_sample_sheet(configs['system'],mockdb,source_dir)
+    description = parsed['description'].replace(parsed['SampleID']+'_','')
+    description_dict = parse_description_into_dictionary(description)
+    if configs["system"].get("Logging","debug") is "True":
+        print "        Description = " + str(parsed['description'])
+    if 'Pipeline' in description_dict:
+        pipeline_key =  description_dict['Pipeline']
+    else:
+        description_pieces = parsed['description'].split('_')
+        pipeline_key = description_pieces[-1]
+    if pipeline_key.startswith('CCGL'):
+        pipeline_key='CCGL'
+    pipeline_name_check = automation_parameters_config.safe_get("Flowcell pipeline",pipeline_key)
+    if pipeline_name_check != pipeline_name:
+        return 1
+    if pipeline_name is None:
+        return 1
+    if configs["system"].get("Logging","debug") is "True":
+        print "Starting " + pipeline_name
+    pipeline = mockdb[pipeline_name].__new__(configs['system'],input_dir=source_dir,pipeline_key=pipeline_key,seq_run_key=None,project=parsed['project_name'],flowcell_dir_name=flowcell_dir_name,running_location='Speed',pipeline_config=configs["pipeline"],**parsed)
     return 1
 
 def things_to_do_if_snps_called(configs,mockdb,pipeline,bcbio):
