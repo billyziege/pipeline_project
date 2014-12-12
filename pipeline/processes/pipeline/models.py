@@ -150,9 +150,12 @@ class Bcbio(SampleQsubProcess):
             else: 
                 return False
         if hasattr(self, "snp_path") and not self.snp_path is None and hasattr(self,"analysis_ready_bam_path") and not self.analysis_ready_bam_path is None:
+            if not os.path.isdir(os.path.dirname(self.snp_path)) or not os.path.dirname(os.path.isfile(self.analysis_ready_bam_path)):
+                return False
             if not os.path.isfile(self.snp_path) or not os.path.isfile(self.analysis_ready_bam_path):
                 snp_file = False
                 bam_file = False
+                return False
                 if not self.upload_dir is None:
                     for file in os.listdir(os.path.join(self.upload_dir,self.description)):
                         if file.endswith('.vcf'):
