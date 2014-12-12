@@ -3,18 +3,22 @@ import argparse
 from config.scripts import MyConfigParser
 from mockdb.initiate_mockdb import initiate_mockdb,save_mockdb
 from manage_storage.scripts import initiate_storage_devices, add_waiting_storage, add_running_storage
+from processes.control import add_sequencing_run_object
 from processes.control import maintain_sequencing_run_objects, advance_running_qc_pipelines
 from processes.control import advance_running_std_pipelines,run_pipelines_with_enough_space
 from processes.control import continue_seq_run, handle_automated_reports
 from processes.transitions import things_to_do_if_initializing_pipeline_with_input_directory
+from processes.transitions import things_to_do_if_initializing_flowcell_pipeline_with_input_directory
 
 
 parser = argparse.ArgumentParser(description='Manages data and submits new jobs.')
 parser.add_argument('-i', dest='source_dir', nargs='+', help='fastq source', default=None)
 parser.add_argument('-o', dest='dest_dir', help='vcf destination', default=None)
 parser.add_argument('-p', '--pipeline', dest='pipeline', help='The version of the pipeline', default='QualityControlPipeline')
+parser.add_argument('--analyze_sequencing_run', dest='seq_run', action='store_true', help='Reanalyze the give sequencing run.', default=False)
 parser.add_argument('--system_config', dest='system_config_file', help='The system configuration file', default='/home/sequencing/src/pipeline_project/pipeline/config/ihg_system.cfg')
 parser.add_argument('-d', '--debug', dest='debug', action='store_true', help='Turn debugging on', default=False)
+parser.add_argument('--sample_sheet', dest='sample_sheet', type=str, help='For use for re-initializing a sequencing run.  Specifies the samples sheet to be used for casava.', default=None)
 options = parser.parse_args()
 if options.debug is True:
     print "Options are " + str(options)
@@ -65,7 +69,13 @@ if options.source_dir != None and options.dest_dir != None:
     if system_config.get("Logging","debug") is "True":
         print "Adding source dir to pipeline"
     configs.update({'pipeline':pipeline_config[options.pipeline]})
-    things_to_do_if_initializing_pipeline_with_input_directory(configs,storage_devices,mockdb,options.source_dir,base_output_dir=options.dest_dir,pipeline_name=options.pipeline)
+    if options.seq_run:
+        for source_dir in options.source_dir:
+            add_sequencing_run_object(system_config,mockdb,source_dir,options.dest_dir,options.sample_sheet)
+    else:
+        things_to_do_if_initializing_pipeline_with_input_directory(configs,storage_devices,mockdb,options.source_dir,base_output_dir=options.dest_dir,pipeline_name=options.pipeline)
+        for source_dir in options.source_dir:
+            things_to_do_if_initializing_flowcell_pipeline_with_input_directory(configs,storage_devices,mockdb,source_dir,base_output_dir=options.dest_dir,pipeline_name=options.pipeline)
 else:
     for pipeline_name in pipeline_config.keys():
         configs.update({'pipeline':pipeline_config[pipeline_name]})
