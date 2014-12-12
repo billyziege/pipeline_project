@@ -48,6 +48,8 @@ class SeqRead():
         if self.type == 'Index':
             read_type_char = 'I'
         number_of_ns = self.length - self.actual_length
+        if self.length == 0:
+            number_of_ns = 0
         output = read_type_char + str(self.actual_length)
         for i in range(0,number_of_ns):
             output += 'n'
