@@ -13,6 +13,7 @@ def parse_sample_sheet(config,mockdb,directory):
     samplesheet={}
     for row in table:
         samplesheet = row
+        break
     if not 'SampleID' in samplesheet:
         sys.exit("No file SampleSheet.csv in " + directory) 
     parsed = {}
@@ -21,6 +22,7 @@ def parse_sample_sheet(config,mockdb,directory):
     sample_key = clean_sample_name(samplesheet['SampleID'])
     parsed['project_name'] = samplesheet['SampleProject']
     parsed['sample'] = mockdb['Sample'].__get__(config,key=sample_key)
+    parsed['SampleID'] = samplesheet['SampleID']
     flowcell_key = samplesheet['FCID']
     parsed['flowcell'] = mockdb['Flowcell'].__get__(config,key=flowcell_key)
     lane_key = flowcell_key + '_lane_' + samplesheet['Lane']
