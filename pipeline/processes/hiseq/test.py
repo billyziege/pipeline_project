@@ -24,7 +24,7 @@ if __name__ == '__main__':
         sample_dirs_dict = list_sample_dirs([args.merge_dir])
         sample_sheet_obj_list. __load_sample_sheets_from_sample_directories__(sample_dirs_dict)
         new_sample_sheet_obj_list = sample_sheet_obj_list.__merge_all_sample_sheet_objects__()
-        new_sample_sheet_obj_list.__print__()
+        new_sample_sheet_obj_list.__print__(print_meta_data=False)
     if args.filter_dir:
         sample_dirs_dict = list_sample_dirs([args.filter_dir])
         sample_sheet_obj_list. __load_sample_sheets_from_sample_directories__(sample_dirs_dict)
