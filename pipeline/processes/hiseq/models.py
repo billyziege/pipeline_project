@@ -5,6 +5,7 @@ import shutil
 from time import strftime, localtime
 from config.scripts import MyConfigParser
 from demultiplex_stats.fill_demultiplex_stats import fill_demultiplex_stats
+from my_utils.file_handling import prepend_to_file
 from physical_objects.hiseq.models import Flowcell, HiSeqMachine
 from processes.models import GenericProcess, StandardPipeline, QsubProcess
 from processes.parsing import parse_sample_sheet
@@ -23,7 +24,7 @@ class SequencingRun(GenericProcess):
     to search the hiseq data directory for additional information.
     """
 
-    def __init__(self,config,key=int(-1),input_dir=None,flowcell=None,machine=None,date='dummy',run_number='dummy',side='dummy',operator=None,run_type=None,process_name='sequencing_run',no_delete=False,**kwargs):
+    def __init__(self,config,key=int(-1),input_dir=None,fastq_archive=None,flowcell=None,machine=None,date='dummy',run_number='dummy',side='dummy',operator=None,run_type=None,process_name='sequencing_run',no_delete=False,sample_sheet=None,**kwargs):
         """
         Initializes the object.
         """
@@ -49,9 +50,14 @@ class SequencingRun(GenericProcess):
             output_name_pieces.append(str(side)+str(flowcell.key))
             output_name = "_".join(output_name_pieces)
             self.output_dir = os.path.join(config.get('Common_directories','hiseq_output'),output_name)
+            if fastq_archive is None:
+                self.fastq_archive = os.path.join(config.get('Common_directories','casava_output'),output_name)
+            else:
+                self.fastq_archive = fastq_archive
             self.complete_file = os.path.join(config.get('Common_directories','hiseq_output'),output_name+"/"+config.get('Filenames','bcls_ready'))
             self.no_delete = no_delete
             self.interop_archived = False
+            self.sample_sheet = sample_sheet
 
     def __start_bcltofastq_pipeline__(self,configs,mockdb):
         """
@@ -77,11 +83,13 @@ class SequencingRun(GenericProcess):
         """
         This launches the process that will archive the fastq directories.
         """
+        if configs["system"].get("Logging","debug") is "True":
+            print "Archiving " + self.flowcell_key
         bcl2fastq_pipeline = mockdb['BclToFastqPipeline'].__get__(configs['system'],self.bcltofastq_pipeline_key)
         output_name = os.path.basename(self.output_dir)
-        output_dir = os.path.join(configs["system"].get('Common_directories','casava_output'),output_name)
         input_dir = os.path.join(bcl2fastq_pipeline.output_dir,output_name)
-        generic_copy = mockdb['GenericCopy'].__new__(configs['system'],input_dir=input_dir,output_dir=output_dir)
+        print self.fastq_archive
+        generic_copy = mockdb['GenericCopy'].__new__(configs['system'],input_dir=input_dir,output_dir=self.fastq_archive)
         self.generic_copy_key = generic_copy.key
         generic_copy.__fill_qsub_file__(configs,template_config=configs["seq_run"])
         generic_copy.__launch__(configs['system'])
@@ -138,22 +146,21 @@ class SequencingRun(GenericProcess):
         Automatically adds the project info to the link file.
         """
         path = config.get('Filenames','web_portal_link_file')
-        with open(path,'r+') as f:
-            content = f.read()
-            f.seek(0,0)
-            for directory in os.listdir(self.output_dir):
-                if not directory.beginswith('Project_'):
-                    continue
-                if not os.path.isdir(directory):
-                    continue
-                pieces = directory.split("_")
-                if len(pieces) < 2:
-                    continue
-                output = [pieces[1]]
-                output.append(os.path.join(self.output_dir,directory))
-                output.append(self.flowcell+"_"+directory)
-                f.write("\t".join(output)+"\n")
-            f.write(content)
+        output_name = os.path.basename(self.output_dir)
+        output_dir = os.path.join(config.get('Common_directories','casava_output'),output_name)
+        for directory in os.listdir(output_dir):
+            if not directory.startswith('Project_'):
+                continue
+            if not os.path.isdir(directory):
+                continue
+            pieces = directory.split("_")
+            if len(pieces) < 2:
+                continue
+            output = [pieces[1]]
+            output.append(os.path.join(self.output_dir,directory))
+            output.append(self.flowcell+"_"+directory)
+            line = "\t".join(output)+"\n"
+            prepend_to_file(path,line)
               
     def __is_complete__(self,configs,mockdb,*args,**kwargs):
         """
@@ -162,46 +169,64 @@ class SequencingRun(GenericProcess):
         have completed successfully.
         """
         if configs["system"].get("Logging","debug") is "True":
-            print "Checking to see if seq run is complete (and advancing post-seq run pipeline"
+            print "Checking to see if seq run is complete (and advancing post-seq run pipeline)"
         if not os.path.isfile(self.complete_file):
+            if configs["system"].get("Logging","debug") is "True":
+                print "    Missing complete file " + self.complete_file
             return False
         if not hasattr(self,"interop_archived") or self.interop_archived is False:
             output_name = os.path.basename(self.output_dir)
             if not self.__archive_sequencing_run_data__(configs,self.output_dir,os.path.join(configs["system"].get('Common_directories','hiseq_run_log'),output_name)):
+                if configs["system"].get("Logging","debug") is "True":
+                    print "    Sequencing run data not archived (InterOp and so forth)."
                 return False
         if not hasattr(self,"bcltofastq_pipeline_key") or self.bcltofastq_pipeline_key is None or not hasattr(self,"illuminate_key") or self.illuminate_key is None:
             if not hasattr(self,"bcltofastq_pipeline_key") or self.bcltofastq_pipeline_key is None:
                 self.__start_bcltofastq_pipeline__(configs,mockdb)
+                if configs["system"].get("Logging","debug") is "True":
+                    print "    Starting bcltofastq pipeline."
             if not hasattr(self,"illuminate_key") or self.illuminate_key is None:
                 self.__launch_illuminate__(configs,mockdb)
+                if configs["system"].get("Logging","debug") is "True":
+                    print "    Starting illuminate."
             return False
         illuminate = mockdb['Illuminate'].__get__(configs['system'],self.illuminate_key)
         if not illuminate.__is_complete__(configs,mockdb=mockdb,*args,**kwargs):
             if configs["system"].get("Logging","debug") is "True":
-                print "Waiting on illuminate"
+                print "    Illuminate not done"
             return False
         bcl2fastq_pipeline = mockdb['BclToFastqPipeline'].__get__(configs['system'],self.bcltofastq_pipeline_key)
         if not bcl2fastq_pipeline.__is_complete__(configs,mockdb=mockdb,*args,**kwargs):
+            if configs["system"].get("Logging","debug") is "True":
+                print "    bcltofastq not done"
             return False
         if not hasattr(self,"generic_copy_key") or self.generic_copy_key is None:
             self.__launch_archive_fastq__(configs,mockdb)
+            if configs["system"].get("Logging","debug") is "True":
+                print "    Launching archive"
             return False
         archive = mockdb['GenericCopy'].__get__(configs['system'],self.generic_copy_key)
         if archive.__is_complete__(*args,**kwargs):
-            if not hasattr(self,"generic_clean_key") or self.generic_clean_key is None:
-                self.__launch_clean__(configs,mockdb)
-            #    self.__link_to_web_portal__(configs['system'])
-                if configs["system"].get("Logging","debug") is "True":
-                    print "  Filling stats"
-                flowcell = mockdb['Flowcell'].__get__(configs['system'],self.flowcell_key)
-                machine = mockdb['HiSeqMachine'].__get__(configs['system'],self.machine_key)
-                fill_demultiplex_stats(configs['system'],mockdb,self.output_dir,flowcell,machine)
-                return False
-        clean = mockdb['GenericClean'].__get__(configs['system'],self.generic_clean_key)
-        if clean.__is_complete__(*args,**kwargs):
-            self.__finish__(*args,**kwargs)
-            return True
-        return False
+            #if not hasattr(self,"generic_clean_key") or self.generic_clean_key is None:
+                #self.__launch_clean__(configs,mockdb)
+            self.__link_to_web_portal__(configs['system'])
+            if configs["system"].get("Logging","debug") is "True":
+                print "  Filling stats"
+            flowcell = mockdb['Flowcell'].__get__(configs['system'],self.flowcell_key)
+            machine = mockdb['HiSeqMachine'].__get__(configs['system'],self.machine_key)
+            fill_demultiplex_stats(configs['system'],mockdb,self.output_dir,flowcell,machine)
+                #return False
+        else:
+            if configs["system"].get("Logging","debug") is "True":
+                print "    Fastq archive not complete"
+            return False     
+        #clean = mockdb['GenericClean'].__get__(configs['system'],self.generic_clean_key)
+        #if clean.__is_complete__(*args,**kwargs):
+        #    self.__finish__(*args,**kwargs)
+        #    return True
+        #return False
+        self.__finish__(*args,**kwargs)
+        return True
         
 class Illuminate(QsubProcess):
     """
@@ -230,7 +255,10 @@ class Casava(QsubProcess):
             output_dir = os.path.join(pipeline.output_dir,os.path.basename(pipeline.output_dir))
             if not os.path.exists(output_dir):
                 os.makedirs(output_dir)
-            original_sample_sheet_file = os.path.join(pipeline.input_dir,"SampleSheet.csv")
+            if pipeline.sample_sheet is None:
+                original_sample_sheet_file = os.path.join(pipeline.input_dir,"SampleSheet.csv")
+            else:
+                original_sample_sheet_file = pipeline.sample_sheet
             if not os.path.isfile(original_sample_sheet_file):#Check to make sure original sample sheet exists
                send_missing_sample_sheet_email(original_sample_sheet_file)
                raise SampleSheetFormatException("No sample sheet found: "+str(original_sample_sheet_file))
@@ -268,10 +296,10 @@ class Casava(QsubProcess):
  
     def __push_samples_into_relevant_pipelines__(self,configs,mockdb):
         """
-        Provides the interface from which all post casava pipelines are run.
+        Provides the interface from which all post casava sample pipelines are run.
         """
         if configs["system"].get("Logging","debug") is "True":
-            print "  Starting post casava pipelines for " + self.flowcell_key
+            print "  Starting post casava sample pipelines for " + self.flowcell_key
             print "  Determining Sample dirs"
         sample_dirs = list_sample_dirs(self.output_dir.split(":"))
         if configs["system"].get("Logging","debug") is "True":
@@ -279,27 +307,58 @@ class Casava(QsubProcess):
         flowcell_dir_name = os.path.basename(self.output_dir)
         automation_parameters_config = MyConfigParser()
         automation_parameters_config.read(configs["system"].get("Filenames","automation_config"))
+        fastqc_pipeline_config = MyConfigParser()
+        fastqc_pipeline_config.read(configs["system"].get("Pipeline","FastQCPipeline"))
         for sample in sample_dirs:
-            if configs["system"].get("Logging","debug") is "True":
-               print "    Processing " + sample
             #running_location = identify_running_location_with_most_currently_available(configs,storage_devices)
             running_location = "Speed"
             parsed = parse_sample_sheet(configs['system'],mockdb,sample_dirs[sample][0])
+            if configs["system"].get("Logging","debug") is "True":
+               print "    Pushing fastqc pipeline for " + sample
+            fastqc_pipeline = mockdb["FastQCPipeline"].__new__(configs['system'],input_dir=sample_dirs[sample][0],flowcell_dir_name=flowcell_dir_name,project=parsed['project_name'],pipeline_config=fastqc_pipeline_config,**parsed)
+            print fastqc_pipeline
             description_dict = parse_description_into_dictionary(parsed['description'])
-            if 'pipeline' in description_dict:
-                pipeline_key =  description_dict['pipeline']
+            if 'Pipeline' in description_dict:
+                pipeline_key =  description_dict['Pipeline']
             else:
                 description_pieces = parsed['description'].split('-')
                 pipeline_key = description_pieces[-1]
-            if re.search('CD1LHZ',pipeline_key):
-                pipeline_key = 'CD1LHZ'
             pipeline_name = automation_parameters_config.safe_get("Pipeline",pipeline_key)
-            mockdb["FastQCPipeline"].__new__(configs['system'],input_dir=sample_dirs[sample][0],flowcell_dir_name=flowcell_dir_name,project=parsed['project_name'],**parsed)
             if pipeline_name is None:
                 continue
             if configs["system"].get("Logging","debug") is "True":
-                print "Starting " + pipeline_name
+                print "Starting " + pipeline_name + " for " + sample
             pipeline = mockdb[pipeline_name].__new__(configs['system'],input_dir=sample_dirs[sample][0],pipeline_key=pipeline_key,seq_run_key=self.seq_run_key,project=parsed['project_name'],flowcell_dir_name=flowcell_dir_name,**parsed)
+
+    def __push_flowcells_into_relevant_pipelines__(self,configs,mockdb):
+        """
+        Provides the interface from which all post casava flowcell pipelines are run.
+        """
+        if configs["system"].get("Logging","debug") is "True":
+            print "  Starting post casava flowcell pipelines for " + self.flowcell_key
+        flowcell_dir_name = os.path.basename(self.output_dir)
+        automation_parameters_config = MyConfigParser()
+        automation_parameters_config.read(configs["system"].get("Filenames","automation_config"))
+        running_location = "Speed"
+        parsed = parse_sample_sheet(configs['system'],mockdb,self.output_dir)
+        description = parsed['description'].replace(parsed['SampleID']+'_','')
+        description_dict = parse_description_into_dictionary(description)
+        if 'Pipeline' in description_dict:
+            pipeline_key =  description_dict['Pipeline']
+        else:
+            description_pieces = parsed['description'].split('-')
+            pipeline_key = description_pieces[-1]
+        if pipeline_key.startswith('CCGL'):
+            pipeline_key='CCGL'
+        pipeline_name = automation_parameters_config.safe_get("Flowcell pipeline",pipeline_key)
+        if pipeline_name is None:
+            return 1
+        if configs["system"].get("Logging","debug") is "True":
+            print "Starting " + pipeline_name
+        pipeline_config = MyConfigParser()
+        pipeline_config.read(configs["system"].get('Pipeline',pipeline_name))
+        pipeline = mockdb[pipeline_name].__new__(configs['system'],input_dir=self.output_dir,pipeline_key=pipeline_key,seq_run_key=self.seq_run_key,project=parsed['project_name'],flowcell_dir_name=flowcell_dir_name,pipeline_config=pipeline_config,**parsed)
+        return 1
 
     def __do_all_relevant_pipelines_have_first_step_complete__(self,configs,mockdb):
         """
@@ -328,6 +387,8 @@ class Casava(QsubProcess):
         """
         Handles the merging of casava directories run in parallel and launching pipelines as well as the normal check.
         """
+        if configs["system"].get("Logging","debug") is "True":
+            print "Checking to see if casava is done for " + self.flowcell_key
         if GenericProcess.__is_complete__(self,*args,**kwargs):
             return True
         for complete_file in self.complete_file.split(":"):
@@ -349,6 +410,7 @@ class Casava(QsubProcess):
             self.merged = True
         ##Launch pipelines
         self.__push_samples_into_relevant_pipelines__(configs,mockdb)
+        self.__push_flowcells_into_relevant_pipelines__(configs,mockdb)
         self.__finish__(*args,**kwargs)
         return True
 
