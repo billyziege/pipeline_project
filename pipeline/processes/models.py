@@ -16,7 +16,7 @@ from sge_email.scripts import send_email
 from sge_queries.nodes import grab_good_node
 from sge_queries.jobs import check_if_single_job_running_on_system
 from template.scripts import fill_template
-from processes.transitions import begin_next_step
+from processes.transitions import begin_next_step, things_to_do_if_starting_pipeline
 from processes.hiseq.scripts import list_sample_dirs, copy_all_xml
 
 class GenericProcess(NumberedObject):
@@ -198,7 +198,7 @@ class QsubProcess(GenericProcess):
                     if not re.search('template',tmp_dir):
                         shutil.rmtree(tmp_dir)
         for complete_file in self.complete_file.split(":"):
-            if not os.path.isfile(complete_file):
+            if os.path.isfile(complete_file):
                 with open(complete_file,'a'):
                     os.utime(complete_file, None)
             
@@ -341,7 +341,7 @@ class GenericPipeline(GenericProcess):
  
     def __handle_linear_steps__(self,configs,mockdb,storage_devices=None,skip_finish=False,*args,**kwargs):
         if not self.__check_first_step__(configs["pipeline"]):
-            print("The pipeline for "+self.sample_key+" has not started but is apparently running.  Moving to initiated but not running.")
+            things_to_do_if_starting_pipeline(configs,mockdb,self)
             return 1
         step_order, step_objects = self.__steps_to_objects__(configs["system"],configs["pipeline"],mockdb)
         prev_step_key = step_order[0]
@@ -359,7 +359,7 @@ class GenericPipeline(GenericProcess):
                     step_objects = begin_next_step(configs,mockdb,self,step_objects,current_step_key,prev_step_key)
                 return False
             prev_step_key = current_step_key
-        if step_objects[prev_step_key].__is_complete__(configs,mockdb,*args,**kwargs): #Check to see if the last step has completed.
+        if step_objects[prev_step_key].__is_complete__(configs,mockdb,*args,**kwargs): #Check to see if the last step has completed.:
             step_objects[prev_step_key].__finish__(configs,*args,**kwargs)
             if not skip_finish:
                 if not storage_devices is None:
@@ -539,12 +539,18 @@ class BclToFastqPipeline(GenericPipeline):
             self.seq_run_key = seq_run.key
             self.flowcell_key = seq_run.flowcell_key
             self.input_dir = seq_run.output_dir
-            output_name = str(seq_run.date) + "_" + str(seq_run.machine_key) + "_" + str(seq_run.run_number) + "_" + str(seq_run.side) + str(seq_run.flowcell_key)
+            num_zeros = 4 - len(str(seq_run.run_number))
+            true_seq_run_number = ""
+            for i in range(0,num_zeros):
+                true_seq_run_number += "0"
+            true_seq_run_number += str(seq_run.run_number)
+            output_name = str(seq_run.date) + "_" + str(seq_run.machine_key) + "_" + true_seq_run_number + "_" + str(seq_run.side) + str(seq_run.flowcell_key)
             self.output_dir = os.path.join(config.get('Common_directories','base_working_directory'),process_name+"/"+output_name)
             GenericPipeline.__init__(self,config,key=key,process_name=process_name,**kwargs)
             if not os.path.exists(self.output_dir):
                os.makedirs(self.output_dir)
             self.running_location = running_location
+            self.sample_sheet = seq_run.sample_sheet
 
     def __is_complete__(self,configs,mockdb,*args,**kwargs):
         """
@@ -565,6 +571,8 @@ class BclToFastqPipeline(GenericPipeline):
         pipeline_config.read(configs["system"].get('Pipeline','BclToFastqPipeline'))
         if self.__handle_linear_steps__(current_configs,mockdb,skip_finish=True,*args,**kwargs):
             casava = mockdb['Casava'].__get__(configs['system'],self.casava_key)
+            if configs["system"].get("Logging","debug") is "True":
+                print "Checking the pipeline first step results"
             if casava.__do_all_relevant_pipelines_have_first_step_complete__(current_configs,mockdb):
                 self.__finish__(*args,**kwargs)
                 return True
@@ -614,8 +622,16 @@ class BclToFastqPipeline(GenericPipeline):
 
 class DnanexusuploadPipeline(GenericPipeline):
 
-    def __init__(self,config,key=-1,input_dir=None,run_qc_metrics_dir=None,flowcell_key=None,process_name='dnanexusuploadpipeline',**kwargs):
+    def __init__(self,config,key=-1,input_dir=None,run_qc_metrics_dir=None,flowcell=None,process_name='dnanexusuploadpipeline',running_location='Speed',pipeline_config=None,**kwargs):
         if not input_dir is None:
             GenericPipeline.__init__(self,config,key=key,input_dir=input_dir,output_dir=input_dir,process_name=process_name,**kwargs)
-            self.flowcell_key = flowcell_key
-
+            self.input_dir = input_dir
+            self.output_dir = input_dir
+            self.flowcell_key = flowcell.key
+            self.running_location = running_location
+            self.storage_needed = 0
+            subject = "Uploading " + self.flowcell_key + " to DNANexus."
+            message = "Uploading has been initiated."
+            recipients = pipeline_config.safe_get("Email","standard_recipients")
+            send_email(subject,message,recipients)
+  
