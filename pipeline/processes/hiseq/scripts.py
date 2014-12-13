@@ -74,6 +74,51 @@ def copy_all_xml(input_dir,output_dir):
             if file.endswith('.xml'):
                 shutil.copy(os.path.join(input_dir,file),os.path.join(output_dir,file))
 
+def check_fastq_output(flowcell_dir):
+    """
+    Checks to make sure that the standard output expected after casava is present.
+    """
+    output = {}
+    output["index"] = check_index_counts(flowcell_dir)
+    output["fastqc"] = []
+    output["md5"] = []
+    sample_dirs = list_sample_dirs([flowcell_dir])
+    for sample in sample_dirs:
+        for directory in sample_dirs[sample]:
+            if not check_md5sum(directory):
+                output["md5"].append(directory)
+            if not check_fastqc_output(directory):
+                output["fastqc"].append(directory)
+    return output
+            
+
+def check_index_counts(flowcell_dir):
+    """
+    Checks to make sure the flowcell count files have been created. 
+    """
+    if os.path.isdir(os.path.join(flowcell_dir,"Undetermined_indices")):
+        for filename in os.listdir(os.path.join(flowcell_dir,"Undetermined_indices")):
+            if filename.endswith("index_count.txt"):
+                return True
+    return False
+
+def check_md5sum(sample_dir):
+    """
+    Checks to make sure the sample dir has the checksum.txt file. 
+    """
+    for filename in os.listdir(sample_dir):
+        if filename.endswith("checksum.txt"):
+            return True
+    return False
+
+def check_fastqc_output(sample_dir):
+    """
+    Checks to make sure the sample dir has the fastqc directory. 
+    """
+    for dirname in os.listdir(sample_dir):
+        if dirname == 'fastqc':
+            return True
+    return False
 
 if __name__ == '__main__':
     #Handle arguments
@@ -82,6 +127,7 @@ if __name__ == '__main__':
     parser.add_argument('--monitoring_dirs_list', dest="monitor", action="store_true", default=False, help='Tests the list monitoring dirs function.')
     parser.add_argument('--sample_dirs_list', dest="sample", action="store_true", default=False, help='Tests the list sample dirs function.')
     parser.add_argument('--project_sample_dirs_list', dest="project", action="store_true", default=False, help='Tests the list project sample dirs function.')
+    parser.add_argument('--fastq_output', dest="fastq_output", action="store_true", default=False, help='Tests the check fastq output function.')
 
     args = parser.parse_args()
     if args.monitor:
@@ -90,3 +136,5 @@ if __name__ == '__main__':
         print str(list_sample_dirs([args.path]))
     if args.project:
         print str(list_project_sample_dirs([args.path]))
+    if args.fastq_output:
+        print str(check_fastq_output(args.path))
