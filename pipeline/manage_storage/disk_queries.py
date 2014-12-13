@@ -18,3 +18,4 @@ def disk_usage(path):
 
 if __name__ == '__main__':
     print disk_available(sys.argv[1])
+    print disk_usage(sys.argv[1])

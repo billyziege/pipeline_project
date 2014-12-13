@@ -5,6 +5,7 @@ import shutil
 from time import strftime, localtime
 from config.scripts import MyConfigParser
 from demultiplex_stats.fill_demultiplex_stats import fill_demultiplex_stats
+from manage_storage.disk_queries import disk_usage
 from my_utils.file_handling import prepend_to_file
 from physical_objects.hiseq.models import Flowcell, HiSeqMachine
 from processes.models import GenericProcess, StandardPipeline, QsubProcess
@@ -88,7 +89,6 @@ class SequencingRun(GenericProcess):
         bcl2fastq_pipeline = mockdb['BclToFastqPipeline'].__get__(configs['system'],self.bcltofastq_pipeline_key)
         output_name = os.path.basename(self.output_dir)
         input_dir = os.path.join(bcl2fastq_pipeline.output_dir,output_name)
-        print self.fastq_archive
         generic_copy = mockdb['GenericCopy'].__new__(configs['system'],input_dir=input_dir,output_dir=self.fastq_archive)
         self.generic_copy_key = generic_copy.key
         generic_copy.__fill_qsub_file__(configs,template_config=configs["seq_run"])
@@ -207,8 +207,19 @@ class SequencingRun(GenericProcess):
             return False
         archive = mockdb['GenericCopy'].__get__(configs['system'],self.generic_copy_key)
         if archive.__is_complete__(*args,**kwargs):
-            #if not hasattr(self,"generic_clean_key") or self.generic_clean_key is None:
-                #self.__launch_clean__(configs,mockdb)
+            if not disk_usage(self.fastq_archive > 30000000):
+                if not hasattr(self,'fastq_archive_reported') or self.fastq_archive_reported is None:
+                    message = "The flowcell "+self.flowcell_key+" has finished casava, but the archive is not as large as expected.\n"
+                    message += "\nPlease check.\n\n"
+                    send_email("Flowcell size problem.",message,recipients='zerbeb@humgen.ucsf.edu')  
+                    self.fastq_archive_reported = True
+                return False
+            if not hasattr(self,"generic_clean_key") or self.generic_clean_key is None:
+                if hasattr(self,'fastq_archive_reported') and self.fastq_archive_reported is True:
+                    message = "The flowcell "+self.flowcell_key+" has finished casava, and is now big enough.\n"
+                    message += "\nContinuing.\n\n"
+                    send_email("Flowcell size problem.",message,recipients='zerbeb@humgen.ucsf.edu')  
+                self.__launch_clean__(configs,mockdb)
             self.__link_to_web_portal__(configs['system'])
             if configs["system"].get("Logging","debug") is "True":
                 print "  Filling stats"
