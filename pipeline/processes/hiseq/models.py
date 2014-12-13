@@ -312,7 +312,7 @@ class Casava(QsubProcess):
         if configs["system"].get("Logging","debug") is "True":
             print "  Starting post casava sample pipelines for " + self.flowcell_key
             print "  Determining Sample dirs"
-        sample_dirs = list_sample_dirs(self.output_dir.split(":"))
+        sample_dirs = list_project_sample_dirs(self.output_dir.split(":"))
         if configs["system"].get("Logging","debug") is "True":
            print "  Samples: " + str(sample_dirs) 
         flowcell_dir_name = os.path.basename(self.output_dir)
@@ -320,26 +320,27 @@ class Casava(QsubProcess):
         automation_parameters_config.read(configs["system"].get("Filenames","automation_config"))
         fastqc_pipeline_config = MyConfigParser()
         fastqc_pipeline_config.read(configs["system"].get("Pipeline","FastQCPipeline"))
-        for sample in sample_dirs:
-            #running_location = identify_running_location_with_most_currently_available(configs,storage_devices)
-            running_location = "Speed"
-            parsed = parse_sample_sheet(configs['system'],mockdb,sample_dirs[sample][0])
-            if configs["system"].get("Logging","debug") is "True":
-               print "    Pushing fastqc pipeline for " + sample
-            fastqc_pipeline = mockdb["FastQCPipeline"].__new__(configs['system'],input_dir=sample_dirs[sample][0],flowcell_dir_name=flowcell_dir_name,project=parsed['project_name'],pipeline_config=fastqc_pipeline_config,**parsed)
-            print fastqc_pipeline
-            description_dict = parse_description_into_dictionary(parsed['description'])
-            if 'Pipeline' in description_dict:
-                pipeline_key =  description_dict['Pipeline']
-            else:
-                description_pieces = parsed['description'].split('-')
-                pipeline_key = description_pieces[-1]
-            pipeline_name = automation_parameters_config.safe_get("Pipeline",pipeline_key)
-            if pipeline_name is None:
-                continue
-            if configs["system"].get("Logging","debug") is "True":
-                print "Starting " + pipeline_name + " for " + sample
-            pipeline = mockdb[pipeline_name].__new__(configs['system'],input_dir=sample_dirs[sample][0],pipeline_key=pipeline_key,seq_run_key=self.seq_run_key,project=parsed['project_name'],flowcell_dir_name=flowcell_dir_name,**parsed)
+        for project in sample_dirs:
+            for sample in sample_dirs:
+                #running_location = identify_running_location_with_most_currently_available(configs,storage_devices)
+                running_location = "Speed"
+                parsed = parse_sample_sheet(configs['system'],mockdb,sample_dirs[sample][0])
+                if configs["system"].get("Logging","debug") is "True":
+                   print "    Pushing fastqc pipeline for " + sample
+                fastqc_pipeline = mockdb["FastQCPipeline"].__new__(configs['system'],input_dir=sample_dirs[sample][0],flowcell_dir_name=flowcell_dir_name,project=parsed['project_name'],pipeline_config=fastqc_pipeline_config,**parsed)
+                print fastqc_pipeline
+                description_dict = parse_description_into_dictionary(parsed['description'])
+                if 'Pipeline' in description_dict:
+                    pipeline_key =  description_dict['Pipeline']
+                else:
+                    description_pieces = parsed['description'].split('-')
+                    pipeline_key = description_pieces[-1]
+                pipeline_name = automation_parameters_config.safe_get("Pipeline",pipeline_key)
+                if pipeline_name is None:
+                    continue
+                if configs["system"].get("Logging","debug") is "True":
+                    print "Starting " + pipeline_name + " for " + sample
+                pipeline = mockdb[pipeline_name].__new__(configs['system'],input_dir=sample_dirs[sample][0],pipeline_key=pipeline_key,seq_run_key=self.seq_run_key,project=parsed['project_name'],flowcell_dir_name=flowcell_dir_name,**parsed)
 
     def __push_flowcells_into_relevant_pipelines__(self,configs,mockdb):
         """

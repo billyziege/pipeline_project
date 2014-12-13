@@ -5,7 +5,7 @@ import re
 import datetime
 from processes.parsing import parse_sample_sheet
 from processes.parsing import parse_description_into_dictionary
-from processes.hiseq.scripts import list_monitoring_dirs, list_sample_dirs
+from processes.hiseq.scripts import list_monitoring_dirs, list_sample_dirs, list_project_sample_dirs
 from processes.hiseq.sequencing_run import determine_run_type
 from manage_storage.scripts import identify_running_location_with_most_currently_available
 from manage_storage.disk_queries import disk_usage
@@ -215,42 +215,46 @@ def things_to_do_if_starting_pipeline(configs,mockdb,pipeline):
     pipeline.state = 'Running'
     return 1
 
-def things_to_do_if_initializing_pipeline_with_input_directory(configs,storage_devices,mockdb,source_dir,pipeline_name=None,base_output_dir=None):
-    sample_dirs = list_sample_dirs(source_dir)
+def things_to_do_if_initializing_pipeline_with_input_directory(configs,storage_devices,mockdb,source_dir,pipeline_name=None,base_output_dir=None,combine_projects=True):
+    if combine_project:
+        sample_dirs["dummy_project"] = list_sample_dirs(source_dir)
+    else:
+        sample_dirs = list_project_sample_dirs(source_dir)
     target_config = MyConfigParser()
     target_config.read(configs["system"].get("Filenames","target_config"))
-    for sample in sample_dirs:
-        running_location = identify_running_location_with_most_currently_available(configs,storage_devices)
-        parsed = parse_sample_sheet(configs['system'],mockdb,sample_dirs[sample][0])
-        if base_output_dir is None:
-            base_output_dir = configs['pipeline'].get('Common_directories','archive_directory')
-        automation_parameters_config = MyConfigParser()
-        automation_parameters_config.read(configs["system"].get("Filenames","automation_config"))
-        description_dict = parse_description_into_dictionary(parsed['description'])
-        if 'Pipeline' in description_dict:
-            pipeline_key =  description_dict['Pipeline']
-        else:
-            description_pieces = parsed['description'].split('_')
-            pipeline_key = description_pieces[-1]
-        pipeline_name_for_sample = automation_parameters_config.safe_get("Pipeline",pipeline_key)
-        if not pipeline_name_for_sample == pipeline_name:
-            continue
-        mockdb[pipeline_name].__new__(configs['system'],input_dir=sample_dirs[sample][0],pipeline_config=configs["pipeline"],project=parsed['project_name'],pipeline_key=pipeline_key,**parsed)
-        flowcell_dict = mockdb['SequencingRun'].__attribute_value_to_object_dict__('flowcell_key')
-        flowcell_dict = mockdb['SequencingRun'].__attribute_value_to_object_dict__('flowcell_key')
-        if parsed['flowcell'].key in flowcell_dict:
-            seq_run = flowcell_dict[parsed['flowcell'].key]
-            pass
-        else:
-            try:
-                base_dir = get_sequencing_run_base_dir(source_dir)
-                [date,machine_key,run_number,side,flowcell_key] = parse_sequencing_run_dir(base_dir)
-                machine = mockdb['HiSeqMachine'].__get__(configs['system'],machine_key)
-                run_type = determine_run_type(base_dir)
-                seq_run = mockdb['SequencingRun'].__new__(configs['system'],flowcell,machine,date,run_number,output_dir=base_dir,side=side,run_type=run_type)
-                fill_demultiplex_stats(configs['system'],mockdb,seq_run.output_dir,flowcell,machine)
-            except:
+    for project in sample_dirs:
+        for sample in sample_dirs[project]:
+            running_location = identify_running_location_with_most_currently_available(configs,storage_devices)
+            parsed = parse_sample_sheet(configs['system'],mockdb,sample_dirs[sample][0])
+            if base_output_dir is None:
+                base_output_dir = configs['pipeline'].get('Common_directories','archive_directory')
+            automation_parameters_config = MyConfigParser()
+            automation_parameters_config.read(configs["system"].get("Filenames","automation_config"))
+            description_dict = parse_description_into_dictionary(parsed['description'])
+            if 'Pipeline' in description_dict:
+                pipeline_key =  description_dict['Pipeline']
+            else:
+                description_pieces = parsed['description'].split('_')
+                pipeline_key = description_pieces[-1]
+            pipeline_name_for_sample = automation_parameters_config.safe_get("Pipeline",pipeline_key)
+            if not pipeline_name_for_sample == pipeline_name:
+                continue
+            mockdb[pipeline_name].__new__(configs['system'],input_dir=sample_dirs[sample][0],pipeline_config=configs["pipeline"],project=parsed['project_name'],pipeline_key=pipeline_key,**parsed)
+            flowcell_dict = mockdb['SequencingRun'].__attribute_value_to_object_dict__('flowcell_key')
+            flowcell_dict = mockdb['SequencingRun'].__attribute_value_to_object_dict__('flowcell_key')
+            if parsed['flowcell'].key in flowcell_dict:
+                seq_run = flowcell_dict[parsed['flowcell'].key]
                 pass
+            else:
+                try:
+                    base_dir = get_sequencing_run_base_dir(source_dir)
+                    [date,machine_key,run_number,side,flowcell_key] = parse_sequencing_run_dir(base_dir)
+                    machine = mockdb['HiSeqMachine'].__get__(configs['system'],machine_key)
+                    run_type = determine_run_type(base_dir)
+                    seq_run = mockdb['SequencingRun'].__new__(configs['system'],flowcell,machine,date,run_number,output_dir=base_dir,side=side,run_type=run_type)
+                    fill_demultiplex_stats(configs['system'],mockdb,seq_run.output_dir,flowcell,machine)
+                except:
+                    pass
     return 1
 
 def things_to_do_if_initializing_flowcell_pipeline_with_input_directory(configs,storage_devices,mockdb,source_dir,pipeline_name=None,base_output_dir=None):
