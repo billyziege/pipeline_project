@@ -350,7 +350,6 @@ class Casava(QsubProcess):
                 if configs["system"].get("Logging","debug") is "True":
                    print "    Pushing fastqc pipeline for " + sample
                 fastqc_pipeline = mockdb["FastQCPipeline"].__new__(configs['system'],input_dir=sample_dirs[sample][0],flowcell_dir_name=flowcell_dir_name,project=parsed['project_name'],pipeline_config=fastqc_pipeline_config,**parsed)
-                print fastqc_pipeline
                 description_dict = parse_description_into_dictionary(parsed['description'])
                 if 'Pipeline' in description_dict:
                     pipeline_key =  description_dict['Pipeline']
@@ -408,7 +407,7 @@ class Casava(QsubProcess):
                     pipeline_config = MyConfigParser()
                     pipeline_config.read(config.get('Pipeline',pipeline_name))
                     for pipeline in seq_run_key_dict[self.seq_run_key]:
-                        if pipeline_name == "FastQCPipleine":
+                        if pipeline_name == "FastQCPipeline":
                             if not pipeline.__is_complete__():
                                 return False
                         if not pipeline.__check_first_step__(pipeline_config):
