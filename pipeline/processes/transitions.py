@@ -55,7 +55,10 @@ def begin_generic_sample_step(configs,mockdb,pipeline,step_objects,next_step_key
     sample = mockdb['Sample'].__get__(configs['system'],pipeline.sample_key)
     if configs["system"].get("Logging","debug") is "True":
        print "  Sample: " + sample.key 
-    next_step_obj = mockdb[translate_underscores_to_capitals(next_step_key)].__new__(configs['system'],sample=sample,prev_step=step_objects[prev_step_key],pipeline_config=configs["pipeline"],pipeline=pipeline)
+    if prev_step_key is None:
+        next_step_obj = mockdb[translate_underscores_to_capitals(next_step_key)].__new__(configs['system'],sample=sample,pipeline_config=configs["pipeline"],pipeline=pipeline)
+    else:
+        next_step_obj = mockdb[translate_underscores_to_capitals(next_step_key)].__new__(configs['system'],sample=sample,prev_step=step_objects[prev_step_key],pipeline_config=configs["pipeline"],pipeline=pipeline)
     if configs["system"].get("Logging","debug") is "True":
        print "  "+translate_underscores_to_capitals(next_step_key)+": " + str(next_step_obj.key) 
     setattr(pipeline,next_step_key+"_key",next_step_obj.key)
@@ -193,7 +196,7 @@ def things_to_do_if_starting_pipeline(configs,mockdb,pipeline):
     if configs["pipeline"].has_option("Pipeline","steps"): #New interface for allowing external definition of linear pipelines
         step_order, step_objects = pipeline.__steps_to_objects__(configs["system"],configs["pipeline"],mockdb)
         first_step = step_order[0]
-        if first_step == "zcat_multiple" or first_step == "cat" or first_step == 'd_n_a_nexus_upload':
+        if first_step == "zcat_multiple" or first_step == "cat" or first_step == 'd_n_a_nexus_upload' or first_step == 'md5_check_sum':
             step_objects = begin_next_step(configs,mockdb,pipeline,step_objects,first_step,None)
             pipeline.state = 'Running'
             return 1

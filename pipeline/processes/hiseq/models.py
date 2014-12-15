@@ -487,11 +487,11 @@ class Md5CheckSum(QsubProcess):
     Keeps track of the md5 process.
     """
 
-    def __init__(self,config,key=int(-1),pipeline_config=None,prev_step=None,process_name='md5_fastq',pipeline=None,**kwargs):
-        if not prev_step is None:
+    def __init__(self,config,key=int(-1),pipeline_config=None,process_name='md5_check_sum',pipeline=None,**kwargs):
+        if not pipeline is None:
             self.flowcell_key = pipeline.flowcell_key
-            output_dir = prev_step.input_dir
-            QsubProcess.__init__(self,config,key=key,output_dir=pipeline.input_dir,input_dir=pipeline.input_dir,process_name="md5_fastq",**kwargs)
+            self.md5_file = os.path.join(pipeline.input_dir,pipeline.sample_key + "_checksum.txt")
+            QsubProcess.__init__(self,config,key=key,output_dir=pipeline.input_dir,input_dir=pipeline.input_dir,process_name=process_name,**kwargs)
 
 #Am considering adding the run_types as separate classes.
 #class HighThroughputRun(SequencingRun):
