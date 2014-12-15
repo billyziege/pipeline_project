@@ -82,8 +82,9 @@ class SeqReadSet():
             seq_read = SeqRead(read_type,elem.attrib['NumCycles'])
             self.seq_reads.append(seq_read)
         #For the case where there is only a single index, actual length is always
-        #length - 1.  This must be corrected.
-        if self.__count_indices__() == 1:
+        #length - 1 for paired end reads.  This must be corrected.  For single end reads,
+        #actual length is correct.
+        if self.__count_indices__() == 1 and len(self.seq_reads) == 2:
             for seq_read in self.seq_reads:
                 if seq_read.__is_index__():
                     seq_read.__set_actual_length__(seq_read.__get_length__() - 1)
