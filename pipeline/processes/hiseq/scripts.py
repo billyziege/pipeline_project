@@ -98,7 +98,7 @@ def check_index_counts(flowcell_dir):
     """
     if os.path.isdir(os.path.join(flowcell_dir,"Undetermined_indices")):
         for filename in os.listdir(os.path.join(flowcell_dir,"Undetermined_indices")):
-            if filename.endswith("index_count.txt"):
+            if filename.endswith("index_counts.txt"):
                 return True
     return False
 
