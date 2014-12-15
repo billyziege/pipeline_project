@@ -82,16 +82,30 @@ def check_fastq_output(flowcell_dir):
     output["index"] = check_index_counts(flowcell_dir)
     output["fastqc"] = []
     output["md5"] = []
-    sample_dirs = list_sample_dirs([flowcell_dir])
-    for sample in sample_dirs:
-        for directory in sample_dirs[sample]:
-            if not check_md5sum(directory):
-                output["md5"].append(directory)
-            if not check_fastqc_output(directory):
-                output["fastqc"].append(directory)
+    output["sample_sheet"] = True
+    if not os.path.isfile(os.path.join(flowcell_dir,"SampleSheet.csv")):
+        output["sample_sheet"] = "No SampleSheet.csv in " + flowcell_dir
+        return output
+    sample_sheet_obj = SampleSheetObj(sample_sheet_file=os.path.join(flowcell_dir,"SampleSheet.csv"))
+    try:
+        sample_index = sample_sheet_obj.sample_sheet_table.__get_field_index__("SampleID")
+    except Exception, msg:
+        output["sample_sheet"] = msg
+    try:
+        project_index = sample_sheet_obj.sample_sheet_table.__get_field_index__("SampleProject")
+    except Exception, msg:
+        output["sample_sheet"] = msg
+    if not output["sample_sheet"] is True:
+        return output
+    for row in sample_sheet_obj.sample_sheet_table.rows:
+        directory = os.path.join(flowcell_dir,"Project_"+str(row[project_index]))
+        directory = os.path.join(directory,"Sample_"+str(row[sample_index]))
+        if not check_md5sum(directory):
+            output["md5"].append(directory)
+        if not check_fastqc_output(directory):
+            output["fastqc"].append(directory)
     return output
             
-
 def check_index_counts(flowcell_dir):
     """
     Checks to make sure the flowcell count files have been created. 

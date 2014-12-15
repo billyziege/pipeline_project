@@ -97,7 +97,9 @@ class MyTable():
         """
         Returns the index of the column_name in fieldnames.
         """
-        return self.fieldnames.index(column_name)
+        if column_name in self.fieldnames:
+            return self.fieldnames.index(column_name)
+        raise SampleSheetFormatException(column_name + " is not a fieldname in the table.")
 
     def __get_column_values__(self,column_name,distinct=True):
         """
