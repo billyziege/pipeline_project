@@ -207,7 +207,7 @@ class SequencingRun(GenericProcess):
             return False
         archive = mockdb['GenericCopy'].__get__(configs['system'],self.generic_copy_key)
         if archive.__is_complete__(*args,**kwargs):
-            if not disk_usage(self.fastq_archive > 30000000):
+            if not disk_usage(self.fastq_archive) > 30000000:
                 if not hasattr(self,'fastq_archive_reported') or self.fastq_archive_reported is None:
                     message = "The flowcell "+self.flowcell_key+" has finished casava, but the archive is not as large as expected.\n"
                     message += "\nPlease check.\n\n"
