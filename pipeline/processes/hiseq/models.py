@@ -216,11 +216,12 @@ class SequencingRun(GenericProcess):
                 return False
             fastq_check = check_fastq_output(self.fastq_archive)
             if fastq_check["md5"] == [] and fastq_check["fastqc"] == [] and fastq_check["index"] is True and fastq_check["sample_sheet"] is True:
-                if not hasattr(self,"fastq_check_reported") or self.fastq_check_report is None:
+                if not hasattr(self,"fastq_check_report") or self.fastq_check_report is None:
                     message = "Just informing you of the completion of the flowcell.\n"
                     send_email("The fastq have been successully generated for " + self.flowcell_key + ".",message,recipients='zerbeb@humgen.ucsf.edu')  
+                    self.fastq_check_report = True
             else:              
-                if not hasattr(self,"fastq_check_reported") or self.fastq_check_report is None:
+                if not hasattr(self,"fastq_check_report") or self.fastq_check_report is None:
                     message = "Report detailing the issues with the flowcell directory for flowcell " + self.flowcell_key + ".\n"
                     if not fastq_check["sample_sheet"] is True:
                         message += "Sample sheet missing from " + self.archive_fastq + ".\n"
@@ -234,6 +235,7 @@ class SequencingRun(GenericProcess):
                             message += "The following directories do not have md5 checksums:"
                         message += "\n\t".join(fastq_check["md5"]) + "\n"
                     send_email("Problem with fastq generation for " + self.flowcell_key + ".",message,recipients="zerbeb@humgen.ucsf.edu")  
+                    self.fastq_check_report = True
                 return False
                 
             if not hasattr(self,"generic_clean_key") or self.generic_clean_key is None:
