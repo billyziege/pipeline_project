@@ -143,8 +143,8 @@ def advance_running_std_pipelines(configs,mockdb,pipeline_name,*args,**kwargs):
     state_dict = mockdb[pipeline_name].__attribute_value_to_object_dict__('state')
     try:
         for pipeline in state_dict['Running']:
-            if configs["system"].get("Logging","debug") is "True":
-                print pipeline
+            #if configs["system"].get("Logging","debug") is "True":
+            #    print pipeline
             pipeline.__copy_altered_parameters_to_config__(configs["pipeline"])
             if configs["pipeline"].has_option("Pipeline","steps"): #New interface for allowing external definition of linear pipelines
                 pipeline.__handle_linear_steps__(configs,mockdb,*args,**kwargs)

@@ -218,7 +218,7 @@ class SequencingRun(GenericProcess):
             if fastq_check["md5"] == [] and fastq_check["fastqc"] == [] and fastq_check["index"] is True and fastq_check["sample_sheet"] is True:
                 if not hasattr(self,"fastq_check_reported") or self.fastq_check_report is None:
                     message = "Just informing you of the completion of the flowcell.\n"
-                    send_email("The fastq have been successully generated for " + self.flowcell_key + ".",message)  
+                    send_email("The fastq have been successully generated for " + self.flowcell_key + ".",message,recipients='zerbeb@humgen.ucsf.edu')  
             else:              
                 if not hasattr(self,"fastq_check_reported") or self.fastq_check_report is None:
                     message = "Report detailing the issues with the flowcell directory for flowcell " + self.flowcell_key + ".\n"
@@ -229,11 +229,11 @@ class SequencingRun(GenericProcess):
                             message += "Index counts not generated.\n"
                         if len(fastq_check["fastqc"]) != 0:
                             message += "The following directories do not have fastqc results:"
-                            mesage += "\n\t".fastq_check["fastqc"] + "\n"
-                        if len(fastq_check["fastqc"]) != 0:
+                            message += "\n\t".join(fastq_check["fastqc"]) + "\n"
+                        if len(fastq_check["md5"]) != 0:
                             message += "The following directories do not have md5 checksums:"
-                        mesage += "\n\t".fastq_check["md5"] + "\n"
-                    send_email("Problem with fastq generation for " + self.flowcell_key + ".",message)  
+                        message += "\n\t".join(fastq_check["md5"]) + "\n"
+                    send_email("Problem with fastq generation for " + self.flowcell_key + ".",message,recipients="zerbeb@humgen.ucsf.edu")  
                 return False
                 
             if not hasattr(self,"generic_clean_key") or self.generic_clean_key is None:
@@ -341,13 +341,13 @@ class Casava(QsubProcess):
         fastqc_pipeline_config = MyConfigParser()
         fastqc_pipeline_config.read(configs["system"].get("Pipeline","FastQCPipeline"))
         for project in sample_dirs:
-            for sample in sample_dirs:
+            for sample in sample_dirs[project]:
                 #running_location = identify_running_location_with_most_currently_available(configs,storage_devices)
                 running_location = "Speed"
-                parsed = parse_sample_sheet(configs['system'],mockdb,sample_dirs[sample][0])
+                parsed = parse_sample_sheet(configs['system'],mockdb,sample_dirs[project][sample][0])
                 if configs["system"].get("Logging","debug") is "True":
                    print "    Pushing fastqc pipeline for " + sample
-                fastqc_pipeline = mockdb["FastQCPipeline"].__new__(configs['system'],input_dir=sample_dirs[sample][0],flowcell_dir_name=flowcell_dir_name,project=parsed['project_name'],pipeline_config=fastqc_pipeline_config,**parsed)
+                fastqc_pipeline = mockdb["FastQCPipeline"].__new__(configs['system'],input_dir=sample_dirs[project][sample][0],flowcell_dir_name=flowcell_dir_name,project=parsed['project_name'],pipeline_config=fastqc_pipeline_config,**parsed)
                 description_dict = parse_description_into_dictionary(parsed['description'])
                 if 'Pipeline' in description_dict:
                     pipeline_key =  description_dict['Pipeline']
@@ -359,7 +359,7 @@ class Casava(QsubProcess):
                     continue
                 if configs["system"].get("Logging","debug") is "True":
                     print "Starting " + pipeline_name + " for " + sample
-                pipeline = mockdb[pipeline_name].__new__(configs['system'],input_dir=sample_dirs[sample][0],pipeline_key=pipeline_key,seq_run_key=self.seq_run_key,project=parsed['project_name'],flowcell_dir_name=flowcell_dir_name,**parsed)
+                pipeline = mockdb[pipeline_name].__new__(configs['system'],input_dir=sample_dirs[project][sample][0],pipeline_key=pipeline_key,seq_run_key=self.seq_run_key,project=parsed['project_name'],flowcell_dir_name=flowcell_dir_name,**parsed)
 
     def __push_flowcells_into_relevant_pipelines__(self,configs,mockdb):
         """

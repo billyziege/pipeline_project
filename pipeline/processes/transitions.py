@@ -228,7 +228,7 @@ def things_to_do_if_initializing_pipeline_with_input_directory(configs,storage_d
     for project in sample_dirs:
         for sample in sample_dirs[project]:
             running_location = identify_running_location_with_most_currently_available(configs,storage_devices)
-            parsed = parse_sample_sheet(configs['system'],mockdb,sample_dirs[sample][0])
+            parsed = parse_sample_sheet(configs['system'],mockdb,sample_dirs[project][sample][0])
             if base_output_dir is None:
                 base_output_dir = configs['pipeline'].get('Common_directories','archive_directory')
             automation_parameters_config = MyConfigParser()
@@ -242,7 +242,7 @@ def things_to_do_if_initializing_pipeline_with_input_directory(configs,storage_d
             pipeline_name_for_sample = automation_parameters_config.safe_get("Pipeline",pipeline_key)
             if not pipeline_name_for_sample == pipeline_name:
                 continue
-            mockdb[pipeline_name].__new__(configs['system'],input_dir=sample_dirs[sample][0],pipeline_config=configs["pipeline"],project=parsed['project_name'],pipeline_key=pipeline_key,**parsed)
+            mockdb[pipeline_name].__new__(configs['system'],input_dir=sample_dirs[project][sample][0],pipeline_config=configs["pipeline"],project=parsed['project_name'],pipeline_key=pipeline_key,**parsed)
             flowcell_dict = mockdb['SequencingRun'].__attribute_value_to_object_dict__('flowcell_key')
             flowcell_dict = mockdb['SequencingRun'].__attribute_value_to_object_dict__('flowcell_key')
             if parsed['flowcell'].key in flowcell_dict:
