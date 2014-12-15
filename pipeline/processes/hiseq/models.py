@@ -258,8 +258,6 @@ class SequencingRun(GenericProcess):
             self.__finish__(*args,**kwargs)
             return True
         return False
-        self.__finish__(*args,**kwargs)
-        return True
         
 class Illuminate(QsubProcess):
     """
@@ -495,10 +493,6 @@ class Md5CheckSum(QsubProcess):
             output_dir = prev_step.input_dir
             QsubProcess.__init__(self,config,key=key,output_dir=pipeline.input_dir,input_dir=pipeline.input_dir,process_name="md5_fastq",**kwargs)
 
-                
-            
-            
-       
 #Am considering adding the run_types as separate classes.
 #class HighThroughputRun(SequencingRun):
 #    """
