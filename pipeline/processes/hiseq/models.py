@@ -349,7 +349,7 @@ class Casava(QsubProcess):
                 parsed = parse_sample_sheet(configs['system'],mockdb,sample_dirs[project][sample][0])
                 if configs["system"].get("Logging","debug") is "True":
                    print "    Pushing fastqc pipeline for " + sample
-                fastqc_pipeline = mockdb["FastQCPipeline"].__new__(configs['system'],input_dir=sample_dirs[project][sample][0],flowcell_dir_name=flowcell_dir_name,project=parsed['project_name'],pipeline_config=fastqc_pipeline_config,**parsed)
+                fastqc_pipeline = mockdb["FastQCPipeline"].__new__(configs['system'],input_dir=sample_dirs[project][sample][0],flowcell_dir_name=flowcell_dir_name,project=parsed['project_name'],pipeline_config=fastqc_pipeline_config,seq_run_key=self.seq_run_key,**parsed)
                 description_dict = parse_description_into_dictionary(parsed['description'])
                 if 'Pipeline' in description_dict:
                     pipeline_key =  description_dict['Pipeline']
@@ -477,11 +477,14 @@ class IndexReport(QsubProcess):
     Keeps track of the Index report process.
     """
 
-    def __init__(self,config,key=int(-1),pipeline_config=None,prev_step=None,process_name='index_report',pipeline=None,**kwargs):
+    def __init__(self,config,key=int(-1),pipeline_config=None,prev_step=None,process_name='index_report',pipeline=None,flowcell_key=None,**kwargs):
         if not prev_step is None:
             self.flowcell_key = pipeline.flowcell_key
             output_dir = os.path.join(prev_step.output_dir,"Undetermined_indices")
             QsubProcess.__init__(self,config,key=key,output_dir=output_dir,input_dir="None",process_name=process_name,**kwargs)
+        elif not flowcell_key is None:
+            self.flowcell_key = flowcell_key
+            QsubProcess.__init__(self,config,key=key,input_dir="None",process_name=process_name,**kwargs)
 
                 
 class Md5CheckSum(QsubProcess):
@@ -489,11 +492,14 @@ class Md5CheckSum(QsubProcess):
     Keeps track of the md5 process.
     """
 
-    def __init__(self,config,key=int(-1),pipeline_config=None,process_name='md5_check_sum',pipeline=None,**kwargs):
+    def __init__(self,config,key=int(-1),pipeline_config=None,process_name='md5_check_sum',pipeline=None,input_dir=None,sample_key=None,**kwargs):
         if not pipeline is None:
             self.flowcell_key = pipeline.flowcell_key
             self.md5_file = os.path.join(pipeline.input_dir,pipeline.sample_key + "_checksum.txt")
             QsubProcess.__init__(self,config,key=key,output_dir=pipeline.input_dir,input_dir=pipeline.input_dir,process_name=process_name,**kwargs)
+        elif not input_dir is None and not sample_key is None:
+            self.md5_file = os.path.join(input_dir,sample_key + "_checksum.txt")
+            QsubProcess.__init__(self,config,key=key,output_dir=input_dir,input_dir=input_dir,process_name=process_name,**kwargs)
 
 #Am considering adding the run_types as separate classes.
 #class HighThroughputRun(SequencingRun):

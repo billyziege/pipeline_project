@@ -14,12 +14,14 @@ class FastQC(SampleQsubProcess):
     Manage and stores info for the Zcat process.  This is the process that decompresses and moves fastq files from storage to the processing directories. 
     """
 
-    def __init__(self,config,key=int(-1),prev_step=None,process_name='fastqc',**kwargs):
+    def __init__(self,config,key=int(-1),prev_step=None,process_name='fastqc',input_dir=None,output_dir=None,**kwargs):
         """
         Initializes the zcat process object.
         """
         if not prev_step is None:
             SampleQsubProcess.__init__(self,config,key=key,input_dir=prev_step.output_dir,output_dir=prev_step.output_dir,process_name=process_name,**kwargs)
+        elif not input_dir is None and not output_dir is None:
+            SampleQsubProcess.__init__(self,config,key=key,input_dir=input_dir,output_dir=output_dir,process_name=process_name,**kwargs)
 
     def __is_complete__(self,*args,**kwargs):
         """
