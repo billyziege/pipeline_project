@@ -135,8 +135,8 @@ class SequencingRun(GenericProcess):
                 message = "The flowcell "+self.flowcell_key+" has finished copying over but is missing the following paths:\n"
                 message += "\n".join(missing_paths)
                 message += "\nPlease check.\n\n"
-                send_email("Missing flowcell data.",message,recipients='zerbeb@humgen.ucsf.edu')  
-                #send_email("Missing flowcell data.",message,recipients='zerbeb@humgen.ucsf.edu,LaoR@humgen.ucsf.edu')  
+                recipients = configs["system"].get('Email','recipients_for_fastq')
+                send_email("Missing flowcell data.",message,recipients=recipients)  
                 self.flowcell_content_reported = True
             return False
         return True
@@ -211,14 +211,16 @@ class SequencingRun(GenericProcess):
                 if not hasattr(self,'fastq_archive_reported') or self.fastq_archive_reported is None:
                     message = "The flowcell "+self.flowcell_key+" has finished casava, but the archive is not as large as expected.\n"
                     message += "\nPlease check.\n\n"
-                    send_email("Flowcell size problem.",message,recipients='zerbeb@humgen.ucsf.edu')  
+                    recipients = configs["system"].get('Email','recipients_for_fastq')
+                    send_email("Flowcell size problem.",message,recipients=recipients)  
                     self.fastq_archive_reported = True
                 return False
             fastq_check = check_fastq_output(self.fastq_archive)
             if fastq_check["md5"] == [] and fastq_check["fastqc"] == [] and fastq_check["index"] is True and fastq_check["sample_sheet"] is True:
                 if not hasattr(self,"fastq_check_report") or self.fastq_check_report is None:
                     message = "Just informing you of the completion of the flowcell.\n"
-                    send_email("The fastq have been successully generated for " + self.flowcell_key + ".",message,recipients='zerbeb@humgen.ucsf.edu')  
+                    recipients = configs["system"].get('Email','recipients_for_fastq')
+                    send_email("The fastq have been successully generated for " + self.flowcell_key + ".",message,recipients=recipients)  
                     self.fastq_check_report = True
             else:              
                 if not hasattr(self,"fastq_check_report") or self.fastq_check_report is None:
@@ -234,7 +236,8 @@ class SequencingRun(GenericProcess):
                         if len(fastq_check["md5"]) != 0:
                             message += "The following directories do not have md5 checksums:"
                         message += "\n\t".join(fastq_check["md5"]) + "\n"
-                    send_email("Problem with fastq generation for " + self.flowcell_key + ".",message,recipients="zerbeb@humgen.ucsf.edu")  
+                    recipients = configs["system"].get('Email','recipients_for_fastq')
+                    send_email("Problem with fastq generation for " + self.flowcell_key + ".",message,recipients=recipients)  
                     self.fastq_check_report = True
                 return False
                 
@@ -242,7 +245,8 @@ class SequencingRun(GenericProcess):
                 if hasattr(self,'fastq_archive_reported') and self.fastq_archive_reported is True:
                     message = "The flowcell "+self.flowcell_key+" has finished casava, and is now big enough.\n"
                     message += "\nContinuing.\n\n"
-                    send_email("Flowcell size problem.",message,recipients='zerbeb@humgen.ucsf.edu')  
+                    recipients = configs["system"].get('Email','recipients_for_fastq')
+                    send_email("Flowcell size problem resolved.",message,recipients=recipients)  
                 self.__launch_clean__(configs,mockdb)
             self.__link_to_web_portal__(configs['system'])
             if configs["system"].get("Logging","debug") is "True":
