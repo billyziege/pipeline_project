@@ -82,6 +82,7 @@ def check_fastq_output(flowcell_dir):
     output["index"] = check_index_counts(flowcell_dir)
     output["fastqc"] = []
     output["md5"] = []
+    output["missing"] = []
     output["sample_sheet"] = True
     if not os.path.isfile(os.path.join(flowcell_dir,"SampleSheet.csv")):
         output["sample_sheet"] = "No SampleSheet.csv in " + flowcell_dir
@@ -100,6 +101,9 @@ def check_fastq_output(flowcell_dir):
     for row in sample_sheet_obj.sample_sheet_table.rows:
         directory = os.path.join(flowcell_dir,"Project_"+str(row[project_index]))
         directory = os.path.join(directory,"Sample_"+str(row[sample_index]))
+        if not os.path.isdir(directory):
+            output["missing"].append(directory)
+            continue
         if not check_md5sum(directory):
             output["md5"].append(directory)
         if not check_fastqc_output(directory):
